@@ -1,0 +1,22 @@
+# never commit
+node_modules/
+.wrangler/
+.dev.vars*
+.env*
+.secrets/
+*.token
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.gz
+*.db-wal
+*.db-shm
+*.db-journal
+*token*.txt
+*.log
+.vscode/
+.idea/

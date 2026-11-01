@@ -1,0 +1,14 @@
+# Token-protected loading/backup door for HWWineTracker's database (no browser sign-in; used by the laptop scripts only).
+name = "hwwinetracker-admin"
+main = "index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "CELLAR"
+class_name = "Cellar"
+script_name = "hwwinetracker"
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "hwwinetracker-backups"

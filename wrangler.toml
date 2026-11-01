@@ -1,0 +1,25 @@
+name = "hwwinetracker"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "CELLAR"
+class_name = "Cellar"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Cellar"]
+
+[vars]
+MODE = "live"            # TRIAL CUTOVER 2026-10-06: real records take entries (back to "readonly" to stop; Vintrace kept as fallback)
+ACCESS_TEAM = "icy-sun-dd2e.cloudflareaccess.com"   # Zero Trust team (from the sign-in redirect)
+ACCESS_AUD = "91633182dbc54736077a5d8c3120fcce4bc2fce879e99a718da5c475c97515f0"   # the Access application tag (Worker > Access > AUD tag)
+
+# nightly backup (src/backup_r2.js): full copy of both databases + new photos into R2, ~3:13 am New York (07:13 UTC)
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "hwwinetracker-backups"
+
+[triggers]
+crons = ["13 7 * * *"]

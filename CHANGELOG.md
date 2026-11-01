@@ -1,0 +1,7 @@
+# HWWineTracker changelog
+Newest first. One entry per version: date · editor · what changed · anything Ken must check.
+
+## 1.72.2-cloud — 2026-11-01 · baseline
+Repository started from Ken's laptop folder (Documents\HW\claude_work\cloud\hwwinetracker), version as
+live per Drive STATE. Earlier history: Drive `Claude/log/hermit-woods` and the `_superseded` copies.
+Added AGENTS.md, CLAUDE.md, GEMINI.md, CHANGELOG.md, .gitignore. No app code changed.
