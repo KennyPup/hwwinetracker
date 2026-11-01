@@ -15,7 +15,8 @@ CLAUDE.md and GEMINI.md only point here. Change these rules only when Ken asks.
 
 ## Source of truth and deploys
 - GitHub `main` = what is live. Cloudflare Workers Builds deploys every push to `main` (`npx wrangler deploy`).
-  Other branches only build-check (`npx wrangler deploy --dry-run`); they never deploy.
+  Builds for other branches are switched off in Cloudflare, so before opening a PR run
+  `npm ci && npx wrangler deploy --dry-run` yourself and say in the PR that it passed.
 - Nobody runs `wrangler deploy` from a laptop for this Worker any more (emergency only, with Ken's say-so,
   and then commit the same code to `main` straight after).
 
