@@ -1,1 +1,1 @@
-{"name":"hwwinetracker","private":true,"type":"module","dependencies":{"pdf-lib":"^1.17.1"}}
+{"name":"hwwinetracker","private":true,"type":"module","dependencies":{"pdf-lib":"^1.17.1"},"devDependencies":{"wrangler":"4.156.0"}}
