@@ -13,7 +13,7 @@ import { ui_entry as UE, ui_formula as UF, app as A } from './gen/strings.js';
 
 export { E, num };
 export const GAL = 3.785411784;
-export const VERSION = '1.72.3-cloud';
+export const VERSION = '1.72.4-cloud';
 
 // per-request context, set by the router: { mode: 'readonly' | 'practice' | 'live', token, user }
 export const ctx = { mode: 'readonly', token: '', user: '' };
