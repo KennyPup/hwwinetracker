@@ -13,7 +13,7 @@ new_sqlite_classes = ["Cellar"]
 
 [vars]
 MODE = "live"            # TRIAL CUTOVER 2026-10-06: real records take entries (back to "readonly" to stop; Vintrace kept as fallback)
-ACCESS_TEAM = "icy-sun-dd2e.cloudflareaccess.com"   # Zero Trust team (from the sign-in redirect)
+ACCESS_TEAM = "kchgeology.cloudflareaccess.com"   # Zero Trust team (from the sign-in redirect)
 ACCESS_AUD = "91633182dbc54736077a5d8c3120fcce4bc2fce879e99a718da5c475c97515f0"   # the Access application tag (Worker > Access > AUD tag)
 
 # nightly backup (src/backup_r2.js): full copy of both databases + new photos into R2, ~3:13 am New York (07:13 UTC)
