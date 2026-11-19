@@ -297,7 +297,7 @@ function rwScale(now) { const t0 = naiveMs(now), t1 = naiveMs(addMonthsDate(now,
 function rwJans(now) { const out = []; for (let y = +now.slice(0, 4) + 1; `${y}-01-01` < addMonthsDate(now, RMONTHS); y++) out.push(y); return out; }
 function rwHead(now) {
   const X = rwScale(now);
-  return `<svg width="${RW}" height="14" viewBox="0 0 ${RW} 14" style="display:block">${X(`${rwJans(now)[0]}-01-01`) > 40 ? '<text x="0" y="11">today</text>' : ''}${rwJans(now).map(y => `<text x="${(X(`${y}-01-01`) + 3).toFixed(1)}" y="11">${y}</text><line x1="${X(`${y}-01-01`).toFixed(1)}" x2="${X(`${y}-01-01`).toFixed(1)}" y1="2" y2="14" stroke="#8b949e" stroke-width="1"/>`).join('')}</svg>`;
+  return `<svg width="${RW}" height="14" viewBox="0 0 ${RW} 14" style="display:block">${X(`${rwJans(now)[0]}-01-01`) > 40 ? '<text x="0" y="11">today</text>' : ''}${rwJans(now).map(y => `${X(`${y}-01-01`) < RW - 30 ? `<text x="${(X(`${y}-01-01`) + 3).toFixed(1)}" y="11">${y}</text>` : ''}<line x1="${X(`${y}-01-01`).toFixed(1)}" x2="${X(`${y}-01-01`).toFixed(1)}" y1="2" y2="14" stroke="#8b949e" stroke-width="1"/>`).join('')}</svg>`;
 }
 // the bar: blue = bottled stock lasts, teal = carried by wine in tank / planned batches, red = nothing to sell; ▼ = start next batch by
 function runway(ln, now) {
@@ -335,7 +335,8 @@ function actionText(ln, now) {
   const sub = `<small>${ln.lead_months ? `${n1(ln.lead_months)} mo to make` : 'production time not set'} · ${seasonText(ln)}</small>`;
   let main = '';
   if (ln.status === 'late') {
-    main = `<b>Start a batch now</b> <span class="muted">(was due ${dLabel(ln.startBy)})</span>`;
+    main = ln.nextStart && ln.nextStart !== now ? `<b>Start window missed: next start ${mLabel(ln.nextStart.slice(0, 7))}</b> <span class="muted">(was due ${dLabel(ln.startBy)})</span>`
+      : `<b>Start a batch now</b> <span class="muted">(was due ${dLabel(ln.startBy)})</span>`;
     if (ln.shortMonths !== null && ln.shortMonths >= 0.5) main += `<small class="sl-warn">Started ${ln.nextStart === now ? 'today' : 'in ' + mLabel(ln.nextStart.slice(0, 7))}, ready about ${mLabel(ln.nextReady.slice(0, 7))}: about ${n0(ln.shortMonths)} month${Math.round(ln.shortMonths) === 1 ? '' : 's'} with none to sell</small>`;
   } else if (ln.status === 'soon') main = `<b>Start a batch by ${dLabel(ln.startBy)}</b>`;
   else if (ln.status === 'ok') main = `Next batch: start by <b>${dLabel(ln.startBy)}</b>`;
@@ -363,11 +364,13 @@ const SL_JS = `<script>(function(){
 var t=document.getElementById('sl-main');if(!t)return;
 t.addEventListener('click',function(e){var b=e.target.closest('.sl-x');if(!b)return;var tb=b.closest('tbody'),d=tb.querySelector('.sl-det');d.hidden=!d.hidden;b.textContent=d.hidden?'\\u25B8':'\\u25BE';b.setAttribute('aria-expanded',String(!d.hidden));});
 var all=document.getElementById('sl-all');if(all)all.addEventListener('click',function(){var open=all.dataset.o!=='1';all.dataset.o=open?'1':'';all.textContent=open?'Collapse all':'Expand all';
- [].forEach.call(t.querySelectorAll('.sl-det'),function(d){d.hidden=!open});[].forEach.call(t.querySelectorAll('.sl-x'),function(b){b.textContent=open?'\\u25BE':'\\u25B8'});});
+ [].forEach.call(t.querySelectorAll('.sl-det'),function(d){d.hidden=!open});[].forEach.call(t.querySelectorAll('.sl-x'),function(b){b.textContent=open?'\\u25BE':'\\u25B8';b.setAttribute('aria-expanded',String(open))});});
 [].forEach.call(t.tHead.rows[0].cells,function(th,ci){if(th.dataset.ns)return;th.classList.add('srt');th.title='Sort';th.addEventListener('click',function(){
- var dir=th.dataset.dir==='asc'?'desc':'asc';[].forEach.call(t.tHead.querySelectorAll('th'),function(h){delete h.dataset.dir});th.dataset.dir=dir;var m=dir==='asc'?1:-1;
+ var dir=th.dataset.dir?(th.dataset.dir==='asc'?'desc':'asc'):(th.dataset.first||'asc');[].forEach.call(t.tHead.querySelectorAll('th'),function(h){delete h.dataset.dir});th.dataset.dir=dir;var m=dir==='asc'?1:-1;
  var bs=[].slice.call(t.tBodies);bs.sort(function(a,b){var x=a.rows[0].cells[ci].dataset.v||'',y=b.rows[0].cells[ci].dataset.v||'';if(x===''&&y==='')return 0;if(x==='')return 1;if(y==='')return -1;
   var p=parseFloat(x),q=parseFloat(y);var d=(/^-?[0-9.]+$/.test(x)&&/^-?[0-9.]+$/.test(y))?p-q:x.localeCompare(y);return d*m;});bs.forEach(function(b){t.appendChild(b)});});});
+var rs=document.getElementById('sl-reset');if(rs)rs.addEventListener('click',function(){[].forEach.call(t.tHead.querySelectorAll('th'),function(h){delete h.dataset.dir});
+ [].slice.call(t.tBodies).sort(function(a,b){return a.dataset.i-b.dataset.i}).forEach(function(b){t.appendChild(b)});});
 var fs=document.querySelectorAll('.sl-f');[].forEach.call(fs,function(f){f.addEventListener('click',function(){[].forEach.call(fs,function(x){x.classList.toggle('on',x===f)});var k=f.dataset.f;
  [].forEach.call(t.tBodies,function(b){b.hidden=!!k&&(' '+b.dataset.f+' ').indexOf(' '+k+' ')<0});});});
 })()</script>`;
@@ -375,20 +378,21 @@ var fs=document.querySelectorAll('.sl-f');[].forEach.call(fs,function(f){f.addEv
 export function page_sales(c, q) {
   const m = model(c, q);
   const tq = keepT(q).slice(1);
-  const rank = { late: 0, soon: 1, ok: 2, nolead: 3, far: 4, nosales: 5 };
-  const act = m.lines.filter(l => l.active).sort((a, b) => (rank[a.status] - rank[b.status]) || ((a.startBy || '9999') < (b.startBy || '9999') ? -1 : (a.startBy || '9999') > (b.startBy || '9999') ? 1 : 0) || (a.sort - b.sort));
+  const rank0 = { late: 0, soon: 1, ok: 3, nolead: 4, far: 5, nosales: 6 };
+  const rk = l => l.status === 'ok' && l.gaps && l.gaps.length ? 2 : rank0[l.status];   // a gap coming outranks plain OK
+  const act = m.lines.filter(l => l.active).sort((a, b) => (rk(a) - rk(b)) || ((a.startBy || '9999') < (b.startBy || '9999') ? -1 : (a.startBy || '9999') > (b.startBy || '9999') ? 1 : 0) || (a.sort - b.sort));
   const cnt = k => act.filter(l => flagsOf(l).includes(k)).length;
-  const rows = act.map(ln => `<tbody data-f="${flagsOf(ln).join(' ')}"><tr class="sl-main">
+  const rows = act.map((ln, i) => `<tbody data-i="${i}" data-f="${flagsOf(ln).join(' ')}"><tr class="sl-main">
       <td data-v="${E(ln.name.toLowerCase())}"><button type="button" class="sl-x" aria-expanded="false" title="Show the figures behind this line">▸</button><a href="/analytics/sales/line?id=${ln.id}${keepT(q)}"><b>${E(ln.name)}</b></a></td>
-      <td data-v="${rank[ln.status]}">${statusChips(ln)}</td>
+      <td data-v="${rk(ln)}">${statusChips(ln)}</td>
       <td data-v="${ln.outAll || '9999'}">${runway(ln, m.now)}</td>
       <td class="n" data-v="${Math.round(ln.est)}"><span class="big">${n0(ln.est)}</span>${ln.tankUnits + ln.planUnits >= 0.5 ? `<small>+ ${n0(ln.tankUnits + ln.planUnits)} in tank${ln.planUnits ? ' / planned' : ''}</small>` : ''}</td>
       <td class="n" data-v="${Math.round(ln.annual)}"><span class="big">${n0(ln.annual)}</span></td>
-      <td data-v="${ln.outAll || (ln.annual ? '9998' : '')}"><span class="big">${ln.outAll ? mLabel(ln.outAll.slice(0, 7)) : ln.annual ? '5+ years' : '—'}</span>${ln.outBottled && ln.outBottled !== ln.outAll ? `<small>bottles alone: ${mLabel(ln.outBottled.slice(0, 7))}</small>` : ''}</td>
+      <td data-v="${ln.outAll || (ln.annual ? '9998' : '')}"><span class="big">${ln.outAll ? mLabel(ln.outAll.slice(0, 7)) : ln.annual ? '5+ years' : '—'}</span>${ln.gaps.length ? ln.gaps.map(g => `<small class="sl-warn">gap ${mLabel(g.from.slice(0, 7))} – ${mLabel(g.to.slice(0, 7))}</small>`).join('') : ''}${ln.outBottled && (!ln.outAll || ln.outBottled.slice(0, 7) !== ln.outAll.slice(0, 7)) ? `<small>bottles alone: ${mLabel(ln.outBottled.slice(0, 7))}</small>` : ''}</td>
       <td class="w" data-v="${ln.startBy || '9999'}">${actionText(ln, m.now)}</td></tr>${detailRow(ln, q)}</tbody>`).join('');
   const chip = (k, label, cls) => cnt(k) ? `<button type="button" class="sl-f ${cls}" data-f="${k}">${cnt(k)} ${label}</button>` : '';
-  const summary = `<div class="sl-sum"><button type="button" class="sl-f on" data-f="">All ${act.length} lines</button>${chip('late', 'start overdue', 'f-late')}${chip('soon', 'start within 3 months', 'f-soon')}${chip('gap', 'with a gap coming', 'f-late')}${chip('long', 'long on stock', 'f-long')}
-    <button type="button" id="sl-all" class="btn2" style="margin-left:auto">Expand all</button></div>`;
+  const summary = `<div class="sl-sum"><button type="button" class="sl-f on" data-f="">All ${act.length} lines</button>${chip('late', 'start overdue', 'f-late')}${chip('soon', 'start soon', 'f-soon')}${chip('gap', 'with a gap coming', 'f-late')}${chip('long', 'long on stock', 'f-long')}
+    <button type="button" id="sl-reset" class="btn2" style="margin-left:auto">Most urgent first</button><button type="button" id="sl-all" class="btn2">Expand all</button></div>`;
   const legend = `<div class="sl-leg"><span><i style="background:#388bfd"></i>bottled stock</span><span><i style="background:#39c5cf"></i>carried by wine in tank / planned</span><span><i style="background:#f85149"></i>gap before tank wine is ready</span><span><i style="background:#f85149;opacity:.35"></i>out of stock unless another batch is made</span><span class="muted">left edge = today</span><span><b style="color:#e3b341">▼</b> start next batch by (<b style="color:#f85149">▼</b> = date passed)</span><span class="muted">hover a bar for dates</span></div>`;
   const off = m.lines.filter(l => !l.active);
   const otherItems = m.unlinedItems.filter(it => Math.round(it.oh) > 0 || it.t12 > 0);
@@ -409,16 +413,16 @@ export function page_sales(c, q) {
   const ign = m.ignoredTank.length ? `<p class="sl-help">Not for a line: ${m.ignoredTank.map(t => `<a href="/batch/${t.bid}">${E(t.code)}</a> ${n0(t.L)} L`).join(' · ')}.</p>` : '';
   const body = `${CSS}${TABS('sales')}${SUBTABS('annual', tq)}<h1>Annual sales &amp; runway</h1>${q.saved ? '<div class="ok">Saved.</div>' : ''}${head(m, q)}${typeChips(q, '/analytics/sales')}
     ${summary}${legend}
-    <table class="sl nosort" id="sl-main"><thead><tr><th>Product line</th><th>Status</th><th>Next 3 years${rwHead(m.now)}</th><th class="n">Bottled now<br>(est.)</th><th class="n">Sells<br>per year</th><th>Runs out</th><th>What to do</th></tr></thead>
+    <table class="sl nosort" id="sl-main"><thead><tr><th>Product line</th><th>Status</th><th>Next 3 years${rwHead(m.now)}</th><th class="n" data-first="desc">Bottled now<br>(est.)</th><th class="n" data-first="desc">Sells<br>per year</th><th>Runs out</th><th>What to do</th></tr></thead>
     ${rows}</table>${SL_JS}
     <details class="sl-d"><summary>How these numbers are worked out</summary><div class="sl-help">
     <p><b>Bottled est. now</b> = on hand in the tracker today minus the sales not yet booked. Jen's tasting-room, Vinoshipper, eatery, wholesale and NHLC sales go in once a month; samples and family use go in as they happen. So after the last booked month (${mLabel(m.lastBooked)}) the month-end types are estimated: the line's yearly month-end sales × each month's seasonal share × the part of the month elapsed (${n1(m.elapsed)} months so far).</p>
     <p><b>Sells per year</b> = bottles/cans dispatched (types chosen above) in the 12 months ending ${mLabel(m.lastBooked)}, club shipments (Vinoshipper) included. This is the runway rate unless a line is set to use <b>your annual figure</b> (seeded from the ANNUAL SALES sheet, column D, which is “no club” — so using it leaves club sales out of the runway).</p>
     <p><b>Seasonal shape</b>: each calendar month's share of the year, pooled over up to three complete 12-month blocks of the line's own history and blended with a flat year (weight 1 against the number of blocks), so July draws down faster than February and October carries the fall club release. Wholesale and NHLC orders count in the rate but not in the shape (one big order would otherwise make its month look like a peak every year).</p>
     <p><b>In tank</b> = litres in the latest bulk snapshot × the line's share ÷ the line's unit size (0.75, 0.375 or 0.355 L; 0.55 for mixed cans/750s). Bottling losses are not taken off. A batch counts as ready on the day it is marked Ready for packaging; otherwise on its first day in a tank + the production time (or today, if that has passed). <b>Planned</b> batches count from the first of their ready month.</p>
-    <p><b>Gaps</b>: stock never goes below zero — a month with nothing to sell is lost sales, not a backorder. If bottled stock runs out before wine in tank is ready, the gap is shown in red under the run-out date.</p>
+    <p><b>Gaps</b>: stock never goes below zero — a month with nothing to sell is lost sales, not a backorder. If bottled stock runs out before wine in tank is ready, the gap is bright red on the bar and named under Runs out and What to do.</p>
     <p><b>Runs out</b> = the date the projected stock falls below the line's safety buffer (0 months unless set); incl. tank &amp; plans it is the last run-out, the one no wine in tank or planned batch refills. <b>Start next batch by</b> = that date − production time (fruit to bottle, seeded from ANNUAL SALES column S), moved back to the last month the wine can be started in when a season is set. Overdue = that date has passed; within 3 months = amber.</p>
-    <p><b>Order and flags</b>: lines are listed most urgent first — start overdue, then start within 3 months (92 days), then by start-by date. <b>Gap coming</b> = bottles run out before the wine in tank is ready. <b>Long on stock</b> = bottled + tank + planned cover ${LONG_YEARS} or more years of sales at the rate used. Click a flag count above the table to show only those lines; click a column heading to sort.</p>
+    <p><b>Order and flags</b>: lines are listed most urgent first — start overdue, then start soon (within 92 days), then lines with a gap coming, then by start-by date (the “Most urgent first” button restores this order after sorting). When a wine can only be started in certain months and this year's were missed, the line says when the next start is. <b>Gap coming</b> = bottles run out before the wine in tank is ready. <b>Long on stock</b> = bottled + tank + planned cover ${LONG_YEARS} or more years of sales at the rate used. Click a flag count above the table to show only those lines; click a column heading to sort.</p>
     <p><b>Next 3 years bar</b>: blue runs to the day bottled stock alone runs out; teal is the stretch carried by wine in tank and planned batches; red is time with nothing to sell. ▼ marks the start-by date (red and at the left edge when it has passed).</p>
     <p><b>Start overdue</b>: the note under it assumes a batch started today (or in the next month the wine can be started, when start months are set) and ready after the production time; the months with none to sell run from the run-out date to that ready date. It only knows wine that is in the tracker and assigned to the line.</p>
     <p>Costs, prices and margins from the ANNUAL SALES sheet are not used: the tracker keeps no ongoing costing.</p></div></details>
