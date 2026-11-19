@@ -139,7 +139,7 @@ export function page_film(c, q) {
 }
 const pick = e => ({ mso2: e.mso2, fso2: e.fso2, ph: e.ph, fill: e.fill, dso2: e.dso2, dtop: e.dtop, alc: e.alc, tF: e.tF, tC: e.tC, month: e.month, type: e.type });
 
-export const TABS = on => `<div class="tabs" style="margin-top:0"><a href="/analytics" class="${on === 'ferm' ? 'on' : ''}">Fermentations</a><a href="/analytics/film" class="${on === 'film' ? 'on' : ''}">Film yeast</a><a href="/analytics/reductones" class="${on === 'red' ? 'on' : ''}">Reductones</a></div>`;
+export const TABS = on => `<div class="tabs" style="margin-top:0"><a href="/analytics" class="${on === 'ferm' ? 'on' : ''}">Fermentations</a><a href="/analytics/film" class="${on === 'film' ? 'on' : ''}">Film yeast</a><a href="/analytics/reductones" class="${on === 'red' ? 'on' : ''}">Reductones</a><a href="/analytics/sales" class="${on === 'sales' ? 'on' : ''}">Sales</a></div>`;
 
 const CSS = `.fy-ctl{display:flex;flex-wrap:wrap;gap:6px 18px;margin:6px 0 10px;font-size:13px}.fy-ctl label{display:flex;gap:6px;align-items:center}
 .fy-ctl>span{color:var(--mut)}.fy-leg{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--fg)}.fy-how{font-size:12.5px;color:var(--mut);max-width:100ch;margin:6px 0 10px}
