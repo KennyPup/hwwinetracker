@@ -1,6 +1,23 @@
 # HWWineTracker changelog
 Newest first. One entry per version: date · editor · what changed · anything Ken must check.
 
+## 1.73.0-cloud — 2026-11-19 · Claude
+New **Analytics › Sales** tab (desktop), replacing the WineSalesbySKU workbook as the thing to look at.
+- **Annual sales & runway** (lead view, after Ken's ANNUAL SALES sheet): one row per product line — bottled stock
+  estimated for today (on hand minus month-end sales not yet booked), wine in tank as bottle/can equivalents, planned
+  batches, sold in the last 12 booked months, Ken's annual figure, years of stock, run-out dates (bottled only, and
+  incl. tank & plans, with a seasonal sales shape), production time fruit-to-bottle, the months a batch can be started,
+  "start next batch by" with Overdue / < 3 months flags, and a 24-month stock strip. Dispatch-type filter chips.
+- **Line page** (/analytics/sales/line?id=): projected stock chart, monthly bottles-out bars by dispatch type, the line's
+  SKUs (add/remove), tank batches (share %, ready date from the batch stage or production time), planned batches, settings.
+- **Sales history**: compare lines by month/quarter/year, ranked last-12 vs prior-12 with sparklines.
+- New tables (additive, idempotent): sales_line, sales_line_item, sales_line_batch, sales_plan; app_meta key sales_seeded.
+  Seeded once from ANNUAL SALES (20 lines: col D annual figure, col S production time) and the Stock-item filters of
+  each per-wine pivot sheet (workbook through Sep 2026) plus newer vintages; seasons only where a sheet note says so;
+  tank batches on 2026-11-18 assigned by code (marked "auto"). No costs, prices or margins. No existing table changed.
+Ken: check the auto tank assignments (e.g. 25PB → Petite Blue, 26Straw2/26StrawHG → Strawberry), fill in seasons and
+production times marked "not set", and add a line for Cirque (24Cirque 1,524 bottles is in "not in a product line").
+
 ## 1.72.4-cloud — 2026-11-13 · Claude
 Fix Error 1101 (site down since the Zero Trust team rename on 13 Nov): `ACCESS_TEAM` in wrangler.toml
 changed from icy-sun-dd2e.cloudflareaccess.com to kchgeology.cloudflareaccess.com, at Ken's request. The

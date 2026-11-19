@@ -26,6 +26,7 @@ import * as opmenu from './opmenu.js';
 import * as analytics from './analytics.js';
 import * as film from './film.js';
 import * as RD from './reductones.js';
+import * as sales from './sales.js';
 import * as ui_entry2 from './ui_entry2.js';
 import * as extras from './extras.js';
 import * as photos from './photos.js';
@@ -69,6 +70,7 @@ export function startup(c) {
   VU.ensure_schema(c);
   TU.ensure_schema(c);
   film.ensure_schema(c);
+  sales.ensure_schema(c);   // v1.73 Analytics › Sales
   if (!c.val("SELECT value FROM app_meta WHERE key='csrf'")) {
     const t = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
     c.run("INSERT OR REPLACE INTO app_meta(key, value) VALUES ('csrf', ?)", t);
@@ -156,6 +158,9 @@ export function handleGet(c, u) {
   if (path.startsWith('/notefile/')) return photos.serve(c, path) || html(page('Not found', '<h1>Not found</h1>'), 404);
   if (path === '/analytics') return html(analytics.page_analytics(c, q));
   if (path === '/analytics/film') return html(film.page_film(c, q));
+  if (path === '/analytics/sales') return html(sales.page_sales(c, q));   // v1.73 Sales: annual sales & runway (lead view)
+  if (path === '/analytics/sales/history') return html(sales.page_history(c, q));
+  if (path === '/analytics/sales/line') { const out = sales.page_line(c, q); return out ? html(out) : html(page('Not found', '<h1>Product line not found</h1><p><a href="/analytics/sales">Sales</a></p>'), 404); }
   if (path === '/analytics/reductones') return html(page('Reductones', RD.page_red(c, film.TABS), '/analytics', [['Analytics', '/analytics'], ['Reductones', null]]));   // v1.38
   if (path === '/notes/edit') { const out = noteedit.edit_page(c, parseInt(qv(q, 'note', '0'), 10), null, '', qv(q, 'back', '')); return out ? html(out) : html(page('Not found', '<h1>Note not found</h1>'), 404); }
   if (path === '/notes/photo') { const out = photos.page_add(c, parseInt(qv(q, 'note', '0'), 10), TOKEN); return out ? html(out) : html(page('Not found', '<h1>Note not found</h1>'), 404); }
@@ -295,6 +300,11 @@ export function handlePost(c, u, bodyText) {
     if (url) return redirect(url);
     const fl = {}; for (const [k, v] of Object.entries(f)) fl[k] = v[0];
     return html(startbatch.start_page(c, fid, TOKEN, `<div class="err">Not saved — ${E(err)}</div>`, fl) || page('Not found', '<h1>Not found</h1>'), 400);
+  }
+  if (path.startsWith('/analytics/sales/')) {   // v1.73 product lines, SKUs, tank assignments, plans: HWWineTracker's own data, allowed in the real copy too
+    if (g('_t') !== TOKEN) return html(page('Expired', '<h1>Form expired</h1><p><a href="javascript:history.back()">Go back</a>, reload and save again.</p>'), 403);
+    const [url, err] = inTx(c, () => sales.post(c, path, f));
+    return url ? redirect(url) : html(page('Not saved', `<h1>Not saved</h1><div class="err">${E(err)}</div><p><a href="javascript:history.back()">Go back</a></p>`), 400);
   }
   if (path === '/analytics/outcome') {   // outcome ratings are HWWineTracker's own data: allowed in the real copy too
     if (g('_t') !== TOKEN) return html(page('Expired', '<h1>Form expired</h1><p><a href="javascript:history.back()">Go back</a>, reload and save again.</p>'), 403);
