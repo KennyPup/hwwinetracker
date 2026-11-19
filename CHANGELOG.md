@@ -1,6 +1,18 @@
 # HWWineTracker changelog
 Newest first. One entry per version: date · editor · what changed · anything Ken must check.
 
+## 1.74.0-cloud — 2026-11-19 · Claude
+Analytics › Sales: the Annual sales & runway table redesigned for a quick read (Ken: columns hard to read, too much at once).
+- Seven columns: product line, status flag (Start overdue / Start soon / Gap coming / Long on stock / OK), a 3-year stock
+  bar (blue = bottled, teal = carried by wine in tank or planned, red = nothing to sell, ▼ = start next batch by),
+  bottled now, sells per year, runs out, and "What to do" in plain words with production time and start months.
+- Listed most urgent first; flag counts above the table filter it; headings still sort; ▸ opens the figures behind a
+  line (stock by SKU, unbooked estimate, tank batches, sales rates, dates); Expand all.
+- New: "Long on stock" = 3+ years of sales covered incl. tank and plans; for overdue lines, what a batch started at the
+  next allowed moment gives (ready date, months with none to sell).
+No table or stored data changed; display and two derived figures only. Line pages and Sales history unchanged.
+Ken: after merge the splash shows 1.74.0-cloud.
+
 ## 1.73.0-cloud — 2026-11-19 · Claude
 New **Analytics › Sales** tab (desktop), replacing the WineSalesbySKU workbook as the thing to look at.
 - **Annual sales & runway** (lead view, after Ken's ANNUAL SALES sheet): one row per product line — bottled stock
