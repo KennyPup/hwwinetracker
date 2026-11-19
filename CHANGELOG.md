@@ -15,6 +15,10 @@ New **Analytics › Sales** tab (desktop), replacing the WineSalesbySKU workbook
   Seeded once from ANNUAL SALES (20 lines: col D annual figure, col S production time) and the Stock-item filters of
   each per-wine pivot sheet (workbook through Sep 2026) plus newer vintages; seasons only where a sheet note says so;
   tank batches on 2026-11-18 assigned by code (marked "auto"). No costs, prices or margins. No existing table changed.
+  Last night's R2 backup checked before this change: daily/main/HWWineTracker_main_2026-11-19.ndjson.gz (07:13 UTC, 2.5 MB).
+- Projection: stock never goes below zero (a gap is lost sales, not a backorder); wine in tank / plans land on their own
+  day; a gap before tank wine is ready is shown in red; "start next batch by" works from the last run-out that nothing
+  known refills. Wholesale and NHLC orders count in the rate but not in the seasonal shape.
 Ken: check the auto tank assignments (e.g. 25PB → Petite Blue, 26Straw2/26StrawHG → Strawberry), fill in seasons and
 production times marked "not set", and add a line for Cirque (24Cirque 1,524 bottles is in "not in a product line").
 
