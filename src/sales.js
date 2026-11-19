@@ -139,7 +139,7 @@ export function model(c, q = {}) {
   for (const p of c.all('SELECT * FROM sales_plan ORDER BY ready_month, id')) if (L.has(p.line_id)) L.get(p.line_id).plans.push(p);
   // per line: rates, seasonal profile, projection, dates
   const elapsed = mDiff(lastBooked, curM) - 1 + (+now.slice(8, 10)) / dim(curM);   // months of sales not yet booked (Jen's month-end dispatches)
-  for (const ln of L.values()) calc(ln, { now, curM, lastBooked, elapsed: Math.max(0, elapsed), useType });
+  for (const ln of L.values()) { calc(ln, { now, curM, lastBooked, elapsed: Math.max(0, elapsed), useType }); ifNow(ln, now); }
   const lineList = [...L.values()];
   const unlinedItems = items.filter(it => !itemLine.has(it.id) && (Math.round(it.oh) !== 0 || (itemT12.get(it.id) || 0) > 0))
     .map(it => ({ ...it, t12: itemT12.get(it.id) || 0, last: itemLast.get(it.id) || null })).sort((a, b) => b.oh - a.oh);
@@ -227,6 +227,19 @@ function calc(ln, { now, curM, lastBooked, elapsed, useType }) {
   ln.status = days < 0 ? 'late' : days <= 92 ? 'soon' : 'ok';
 }
 
+// v1.74: long-on-stock flag, and for a line whose start-by date has passed, what a batch started at the next allowed moment gives
+function ifNow(ln, now) {
+  ln.long = ln.yrsAll !== null && ln.yrsAll !== undefined && ln.yrsAll >= LONG_YEARS;
+  ln.nextStart = null; ln.nextReady = null; ln.shortMonths = null;
+  if (!ln.lead_months || !ln.outAll) return;
+  const months = ln.season_months ? ln.season_months.split(',').map(Number).filter(x => x >= 1 && x <= 12) : [];
+  let m = now.slice(0, 7), guard = 0;
+  if (months.length && months.length < 12) while (!months.includes(+m.slice(5, 7)) && guard++ < 13) m = mAdd(m, 1);
+  ln.nextStart = m === now.slice(0, 7) ? now : `${m}-01`;
+  ln.nextReady = addMonthsDate(ln.nextStart, ln.lead_months);
+  ln.shortMonths = Math.max(0, (naiveMs(ln.nextReady) - naiveMs(ln.outAll)) / 864e5 / 30.44);
+}
+
 // ---- pieces of HTML
 const CSS = `<style>
 .sl-kpi{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0 12px;font-size:13px;color:var(--mut)}.sl-kpi b{color:var(--fg2);font-weight:600}
@@ -239,6 +252,17 @@ table.sl td{white-space:nowrap;padding:7px 8px}table.sl th{padding:7px 8px}table
 .sl-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut);font-weight:600}.sl-form .wide{grid-column:1/-1}
 .sl-mo{display:flex;flex-wrap:wrap;gap:4px}.sl-mo label{flex-direction:row;align-items:center;gap:3px;font-weight:400;color:var(--fg);font-size:12.5px;border:1px solid var(--line2);border-radius:5px;padding:2px 6px}
 .sl-help{font-size:12.5px;color:var(--mut);max-width:1100px}.sl-help b{color:var(--fg)}
+.sl-long{background:rgba(57,197,207,.15);color:#9be9f0}.sl-warn{color:#ffb3ad!important}.sl-long-t{color:#9be9f0!important}
+table.sl tr.sl-main td{padding:10px 10px;vertical-align:middle}table.sl td .big{font-size:16px;font-weight:600;color:var(--fg2)}table.sl td small{font-size:11.5px;margin-top:2px}
+table.sl td.w small{max-width:none}table.sl td.w{max-width:400px;min-width:260px}table.sl tr.sl-main td:first-child{white-space:normal;min-width:150px;max-width:230px}table.sl tr.sl-main td:nth-child(2){white-space:normal;max-width:150px}table.sl tr.sl-main td:nth-child(2) .sl-st{margin:2px 0}table.sl th svg text{font-weight:400}
+.sl-x{background:none;border:0;color:var(--mut);font-size:15px;padding:0 8px 0 0;cursor:pointer;font-weight:400;float:left}table.sl tr.sl-main td:first-child a{display:block;overflow:hidden}.sl-x:hover{color:var(--fg2);filter:none}
+table.sl tbody+tbody tr.sl-main td{border-top:1px solid var(--line)}table.sl tr.sl-main td{border-bottom:0}
+tr.sl-det td{background:#0f141b;padding:12px 16px 14px 34px;white-space:normal}tr.sl-det:hover td{background:#0f141b}
+.sl-detg{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:8px 24px}.sl-detg h4{margin:0 0 4px;font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.sl-detg .kv{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:2px 0;border-bottom:1px dotted var(--line)}.sl-detg .kv span{color:var(--mut)}.sl-detg .kv b{font-weight:500;color:var(--fg);text-align:right}
+.sl-sum{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 8px}.sl-f{background:var(--card);border:1px solid var(--line2);color:var(--mut);border-radius:16px;padding:4px 12px;font-weight:500;font-size:13px}
+.sl-f.on{border-color:var(--acc);color:var(--fg2);background:var(--blue-t)}.sl-f.f-late{color:#ffb3ad}.sl-f.f-soon{color:#f0d79a}.sl-f.f-long{color:#9be9f0}
+.sl-leg{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--mut);margin:0 0 8px}.sl-leg i{display:inline-block;width:14px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
 details.sl-d{margin:10px 0}details.sl-d summary{cursor:pointer;color:var(--acc);font-size:13px}
 </style>`;
 
@@ -257,20 +281,6 @@ function statusPill(ln) {
   return `<span class="sl-st ${cls}">${txt}</span>`;
 }
 
-// 24-month strip: each month coloured by months of stock left at its end (incl. tank and plans); ▲ = wine coming ready
-function strip(ln, n = 24) {
-  if (!ln.track || !ln.annual) return '<span class="muted">—</span>';
-  const W = 7, H = 16, out = [`<svg width="${n * W}" height="${H + 6}" viewBox="0 0 ${n * W} ${H + 6}" role="img">`];
-  ln.track.slice(0, n).forEach((t, i) => {
-    const cv = t.cover, col = cv === null ? '#30363d' : cv <= 0 ? '#f85149' : cv < 2 ? '#db6d28' : cv < 6 ? '#d29922' : '#2ea043';
-    out.push(`<rect x="${i * W}" y="4" width="${W - 1.5}" height="${H - 4}" rx="1.5" fill="${col}" fill-opacity="${cv !== null && cv <= 0 ? .55 : .85}"><title>${mLabel(t.m)}: ${cv === null ? 'no demand' : n0(t.end) + ' left at month end (' + n1(cv) + ' months)'}${t.arr ? ' · +' + n0(t.arr) + ' coming ready' : ''}</title></rect>`);
-    if (t.arr) out.push(`<path d="M${i * W + W / 2 - 3} 3.5 L${i * W + W / 2 + 2} 3.5 L${i * W + W / 2 - .5} 0 Z" fill="#c9d1d9"/>`);
-    if (t.m.endsWith('-01')) out.push(`<line x1="${i * W - .75}" x2="${i * W - .75}" y1="2" y2="${H + 6}" stroke="#8b949e" stroke-width=".8"/>`);
-  });
-  out.push('</svg>');
-  return out.join('');
-}
-
 function head(m, q) {
   const tnote = m.types ? `<b>${[...m.types].join(', ')}</b> only` : 'all dispatch types';
   return `<div class="sl-kpi"><span>Sales booked through <b>${mLabel(m.lastBooked)}</b> (last month with Tasting Room Sales dispatched)</span>
@@ -279,29 +289,111 @@ function head(m, q) {
 
 const SUBTABS = (on, q) => `<div class="tabs" style="margin:0 0 14px"><a class="${on === 'annual' ? 'on' : ''}" href="/analytics/sales${q ? '?' + q : ''}">Annual sales &amp; runway</a><a class="${on === 'hist' ? 'on' : ''}" href="/analytics/sales/history${q ? '?' + q : ''}">Sales history</a></div>`;
 
-// ---- Annual sales (lead view)
+// ---- Annual sales (lead view). v1.74: one glance per line — status, a 3-year stock bar, what to do — sorted most urgent first;
+// the figures behind each line open with the arrow.
+const LONG_YEARS = 3;   // "long on stock" when bottled + tank + planned cover this many years of sales or more
+const RW = 300, RMONTHS = 36;
+function rwScale(now) { const t0 = naiveMs(now), t1 = naiveMs(addMonthsDate(now, RMONTHS)); return d => Math.max(0, Math.min(RW, (naiveMs(d) - t0) / (t1 - t0) * RW)); }
+function rwJans(now) { const out = []; for (let y = +now.slice(0, 4) + 1; `${y}-01-01` < addMonthsDate(now, RMONTHS); y++) out.push(y); return out; }
+function rwHead(now) {
+  const X = rwScale(now);
+  return `<svg width="${RW}" height="14" viewBox="0 0 ${RW} 14" style="display:block">${X(`${rwJans(now)[0]}-01-01`) > 40 ? '<text x="0" y="11">today</text>' : ''}${rwJans(now).map(y => `${X(`${y}-01-01`) < RW - 30 ? `<text x="${(X(`${y}-01-01`) + 3).toFixed(1)}" y="11">${y}</text>` : ''}<line x1="${X(`${y}-01-01`).toFixed(1)}" x2="${X(`${y}-01-01`).toFixed(1)}" y1="2" y2="14" stroke="#8b949e" stroke-width="1"/>`).join('')}</svg>`;
+}
+// the bar: blue = bottled stock lasts, teal = carried by wine in tank / planned batches, red = nothing to sell; ▼ = start next batch by
+function runway(ln, now) {
+  if (!ln.annual) return '<span class="muted">no sales in the last 12 months</span>';
+  const X = rwScale(now), end = addMonthsDate(now, RMONTHS), H = 26, y0 = 9, bh = 13, o = [`<svg width="${RW}" height="${H}" viewBox="0 0 ${RW} ${H}" style="display:block" role="img">`];
+  const rect = (a, b, fill, op, tip) => { const x1 = X(a), x2 = X(b); if (x2 - x1 > 0.3) o.push(`<rect x="${x1.toFixed(1)}" y="${y0}" width="${(x2 - x1).toFixed(1)}" height="${bh}" fill="${fill}" fill-opacity="${op}"><title>${tip}</title></rect>`); };
+  const ob = ln.outBottled && ln.outBottled < end ? ln.outBottled : end, oa = ln.outAll && ln.outAll < end ? ln.outAll : end;
+  o.push(`<rect x="0" y="${y0}" width="${RW}" height="${bh}" rx="2" fill="#21262d"/>`);
+  rect(now, ob, '#388bfd', 1, `Bottled stock lasts to ${ln.outBottled ? dLabel(ln.outBottled) : 'beyond 5 years'}`);
+  if (oa > ob) rect(ob, oa, '#39c5cf', .8, `Wine in tank / planned batches carry it to ${ln.outAll ? dLabel(ln.outAll) : 'beyond 5 years'}`);
+  for (const g of ln.gaps) rect(g.from, g.to < end ? g.to : end, '#f85149', 1, `Nothing to sell ${dLabel(g.from)} – ${dLabel(g.to)} (tank wine not ready)`);
+  if (ln.outAll && ln.outAll < end) rect(ln.outAll, end, '#f85149', .28, `Out of stock from ${dLabel(ln.outAll)} unless another batch is made`);
+  for (const y of rwJans(now)) { const x = X(`${y}-01-01`).toFixed(1); o.push(`<line x1="${x}" x2="${x}" y1="${y0 - 2}" y2="${y0 + bh + 2}" stroke="#0d1117" stroke-width="1.2"/>`); }
+  if (ln.startBy && ln.startBy < end) {
+    const late = ln.startBy < now, x = late ? 5 : Math.max(5, Math.min(RW - 5, X(ln.startBy))), col = late ? '#f85149' : '#e3b341';
+    o.push(`<path d="M${(x - 5).toFixed(1)} 0 L${(x + 5).toFixed(1)} 0 L${x.toFixed(1)} 8 Z" fill="${col}" stroke="#0d1117" stroke-width=".8"><title>Start next batch by ${dLabel(ln.startBy)}${late ? ' (passed)' : ''}</title></path><line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="8" y2="${y0 + bh}" stroke="${col}" stroke-width="1.4"/>`);
+  }
+  o.push('</svg>');
+  return o.join('');
+}
+const flagsOf = ln => [ln.status === 'late' ? 'late' : '', ln.status === 'soon' ? 'soon' : '', ln.gaps && ln.gaps.length ? 'gap' : '', ln.long ? 'long' : ''].filter(Boolean);
+function statusChips(ln) {
+  const out = [];
+  if (ln.status === 'late') out.push('<span class="sl-st sl-late">Start overdue</span>');
+  else if (ln.status === 'soon') out.push('<span class="sl-st sl-soon">Start soon</span>');
+  if (ln.gaps && ln.gaps.length) out.push('<span class="sl-st sl-late">Gap coming</span>');
+  if (ln.long) out.push('<span class="sl-st sl-long">Long on stock</span>');
+  if (ln.status === 'nosales') out.push('<span class="sl-st sl-none">No sales</span>');
+  else if (ln.status === 'nolead') out.push('<span class="sl-st sl-none">Set production time</span>');
+  if (!out.length) out.push('<span class="sl-st sl-ok">OK</span>');
+  return out.join(' ');
+}
+const seasonText = ln => !ln.season_months ? 'start months not set' : ln.season_months.split(',').length >= 12 ? 'can start any time' : 'start in ' + ln.season_months.split(',').map(x => MON[+x - 1]).join(', ');
+function actionText(ln, now) {
+  const sub = `<small>${ln.lead_months ? `${n1(ln.lead_months)} mo to make` : 'production time not set'} · ${seasonText(ln)}</small>`;
+  let main = '';
+  if (ln.status === 'late') {
+    main = ln.nextStart && ln.nextStart !== now ? `<b>Start window missed: next start ${mLabel(ln.nextStart.slice(0, 7))}</b> <span class="muted">(was due ${dLabel(ln.startBy)})</span>`
+      : `<b>Start a batch now</b> <span class="muted">(was due ${dLabel(ln.startBy)})</span>`;
+    if (ln.shortMonths !== null && ln.shortMonths >= 0.5) main += `<small class="sl-warn">Started ${ln.nextStart === now ? 'today' : 'in ' + mLabel(ln.nextStart.slice(0, 7))}, ready about ${mLabel(ln.nextReady.slice(0, 7))}: about ${n0(ln.shortMonths)} month${Math.round(ln.shortMonths) === 1 ? '' : 's'} with none to sell</small>`;
+  } else if (ln.status === 'soon') main = `<b>Start a batch by ${dLabel(ln.startBy)}</b>`;
+  else if (ln.status === 'ok') main = `Next batch: start by <b>${dLabel(ln.startBy)}</b>`;
+  else if (ln.status === 'far') main = 'No batch needed: 5+ years of stock';
+  else if (ln.status === 'nolead') main = 'Set the production time to get a start date';
+  else main = '<span class="muted">—</span>';
+  if (ln.gaps && ln.gaps.length) main += ln.gaps.map(g => `<small class="sl-warn">Nothing to sell ${dLabel(g.from)} – ${dLabel(g.to)}: bottles run out before the tank wine is ready</small>`).join('');
+  if (ln.long && ln.status !== 'far') main += `<small class="sl-long-t">${n1(ln.yrsAll)} years of stock incl. tank &amp; plans</small>`;
+  return main + sub;
+}
+function detailRow(ln, q) {
+  const skus = ln.items.filter(it => Math.round(it.oh) !== 0).sort((a, b) => a.code < b.code ? -1 : 1);
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  return `<tr class="sl-det" hidden><td colspan="7"><div class="sl-detg">
+    <div><h4>Bottled</h4>${skus.length ? skus.map(it => kv(`<a href="/item/${it.id}">${E(it.code)}</a>`, n0(it.oh))).join('') : '<div class="muted">none on hand</div>'}
+      ${kv('On hand in the tracker', n0(ln.onhand))}${kv('Sales not yet booked (est.)', '− ' + n0(ln.unbooked))}${kv('Bottled, est. now', n0(ln.est))}</div>
+    <div><h4>In tank &amp; planned</h4>${ln.tank.length ? ln.tank.map(t => kv(`<a href="/batch/${t.bid}">${E(t.code)}</a> ${n0(t.L)} L${(t.share ?? 1) < 1 ? ` × ${Math.round(t.share * 100)}%` : ''}`, `${n0(t.units)} · ready ${dLabel(t.ready)}`)).join('') : '<div class="muted">no wine in tank for this line</div>'}
+      ${ln.plans.map(p => kv(`Planned, ${mLabel(p.ready_month)}`, n0(p.units))).join('')}${kv('Total in tank / planned', `${n0(ln.tankUnits)} / ${n0(ln.planUnits)}`)}</div>
+    <div><h4>Sales per year</h4>${kv('Last 12 booked months', n0(ln.t12))}${kv('The 12 months before', n0(ln.p12))}${kv('Last 3 months × 4', n0(ln.t3 * 4))}${kv('Your annual figure', n0(ln.annual_target))}${kv('Rate used for the runway', n0(ln.annual) + (ln.basis === 'target' ? ' (your figure)' : ''))}</div>
+    <div><h4>Dates</h4>${kv('Bottled stock runs out', ln.outBottled ? dLabel(ln.outBottled) : ln.annual ? '5+ years' : '—')}${kv('Runs out incl. tank &amp; plans', ln.outAll ? dLabel(ln.outAll) : ln.annual ? '5+ years' : '—')}
+      ${kv('Years of stock, bottled', ln.yrsBottled === null ? '—' : n1(ln.yrsBottled))}${kv('Years incl. tank &amp; plans', ln.yrsAll === null ? '—' : n1(ln.yrsAll))}${kv('Production time', ln.lead_months ? n1(ln.lead_months) + ' months' : 'not set')}${kv('Can start', !ln.season_months ? 'not set' : ln.season_months.split(',').length >= 12 ? 'any time' : ln.season_months.split(',').map(x => MON[+x - 1]).join(', '))}${kv('Start next batch by', ln.startBy ? dLabel(ln.startBy) : '—')}</div>
+    </div><p style="margin:8px 0 0"><a href="/analytics/sales/line?id=${ln.id}${keepT(q)}">Open ${E(ln.name)}: charts, SKUs, tank batches, plans and settings →</a></p></td></tr>`;
+}
+const SL_JS = `<script>(function(){
+var t=document.getElementById('sl-main');if(!t)return;
+t.addEventListener('click',function(e){var b=e.target.closest('.sl-x');if(!b)return;var tb=b.closest('tbody'),d=tb.querySelector('.sl-det');d.hidden=!d.hidden;b.textContent=d.hidden?'\\u25B8':'\\u25BE';b.setAttribute('aria-expanded',String(!d.hidden));});
+var all=document.getElementById('sl-all');if(all)all.addEventListener('click',function(){var open=all.dataset.o!=='1';all.dataset.o=open?'1':'';all.textContent=open?'Collapse all':'Expand all';
+ [].forEach.call(t.querySelectorAll('.sl-det'),function(d){d.hidden=!open});[].forEach.call(t.querySelectorAll('.sl-x'),function(b){b.textContent=open?'\\u25BE':'\\u25B8';b.setAttribute('aria-expanded',String(open))});});
+[].forEach.call(t.tHead.rows[0].cells,function(th,ci){if(th.dataset.ns)return;th.classList.add('srt');th.title='Sort';th.addEventListener('click',function(){
+ var dir=th.dataset.dir?(th.dataset.dir==='asc'?'desc':'asc'):(th.dataset.first||'asc');[].forEach.call(t.tHead.querySelectorAll('th'),function(h){delete h.dataset.dir});th.dataset.dir=dir;var m=dir==='asc'?1:-1;
+ var bs=[].slice.call(t.tBodies);bs.sort(function(a,b){var x=a.rows[0].cells[ci].dataset.v||'',y=b.rows[0].cells[ci].dataset.v||'';if(x===''&&y==='')return 0;if(x==='')return 1;if(y==='')return -1;
+  var p=parseFloat(x),q=parseFloat(y);var d=(/^-?[0-9.]+$/.test(x)&&/^-?[0-9.]+$/.test(y))?p-q:x.localeCompare(y);return d*m;});bs.forEach(function(b){t.appendChild(b)});});});
+var rs=document.getElementById('sl-reset');if(rs)rs.addEventListener('click',function(){[].forEach.call(t.tHead.querySelectorAll('th'),function(h){delete h.dataset.dir});
+ [].slice.call(t.tBodies).sort(function(a,b){return a.dataset.i-b.dataset.i}).forEach(function(b){t.appendChild(b)});});
+var fs=document.querySelectorAll('.sl-f');[].forEach.call(fs,function(f){f.addEventListener('click',function(){[].forEach.call(fs,function(x){x.classList.toggle('on',x===f)});var k=f.dataset.f;
+ [].forEach.call(t.tBodies,function(b){b.hidden=!!k&&(' '+b.dataset.f+' ').indexOf(' '+k+' ')<0});});});
+})()</script>`;
+
 export function page_sales(c, q) {
   const m = model(c, q);
   const tq = keepT(q).slice(1);
-  const rows = m.lines.filter(l => l.active).map(ln => {
-    const oh = ln.items.filter(it => Math.round(it.oh) !== 0).sort((a, b) => a.code < b.code ? -1 : 1).map(it => `${E(it.code)} ${n0(it.oh)}`).join(' · ');
-    const season = ln.season_months ? (ln.season_months.split(',').length >= 12 ? 'Any time' : ln.season_months.split(',').map(x => MON[+x - 1]).join(', ')) : '<span class="muted">not set</span>';
-    const lead = ln.lead_months ? `${n1(ln.lead_months)} mo` : '<span class="muted">not set</span>';
-    return `<tr>
-      <td class="w"><a href="/analytics/sales/line?id=${ln.id}${keepT(q)}"><b>${E(ln.name)}</b></a><small>${oh || 'no bottled stock'}</small></td>
-      <td class="n" data-v="${Math.round(ln.est)}">${n0(ln.est)}<small>${ln.unbooked >= 0.5 ? `${n0(ln.onhand)} on hand − ${n0(ln.unbooked)} unbooked` : 'on hand'}</small></td>
-      <td class="n" data-v="${Math.round(ln.tankUnits)}">${ln.tankUnits ? n0(ln.tankUnits) : ''}<small class="wr">${ln.tank.length ? ln.tank.map(t => E(t.code)).join(', ') : ''}</small></td>
-      <td class="n">${ln.planUnits ? n0(ln.planUnits) : ''}</td>
-      <td class="n" data-v="${Math.round(ln.t12)}">${n0(ln.t12)}<small>last 3 mo ×4: ${n0(ln.t3 * 4)}</small></td>
-      <td class="n">${n0(ln.annual_target)}${ln.basis === 'target' ? '<small>used for runway</small>' : ''}</td>
-      <td class="n" data-v="${ln.yrsBottled ?? ''}">${ln.yrsBottled === null ? '' : n1(ln.yrsBottled)}</td>
-      <td class="n" data-v="${ln.yrsAll ?? ''}">${ln.yrsAll === null ? '' : n1(ln.yrsAll)}</td>
-      <td data-v="${ln.outBottled || '9999'}">${ln.outBottled ? dLabel(ln.outBottled) : ln.annual ? '5+ yrs' : ''}</td>
-      <td data-v="${ln.outAll || '9999'}">${ln.outAll ? dLabel(ln.outAll) : ln.annual ? '5+ yrs' : ''}${gapNote(ln)}</td>
-      <td>${lead}</td><td class="w" style="min-width:90px">${season}</td>
-      <td data-v="${ln.startBy || '9999'}"><b>${ln.startBy ? dLabel(ln.startBy) : ''}</b> ${statusPill(ln)}</td>
-      <td>${strip(ln)}</td></tr>`;
-  }).join('');
+  const rank0 = { late: 0, soon: 1, ok: 3, nolead: 4, far: 5, nosales: 6 };
+  const rk = l => l.status === 'ok' && l.gaps && l.gaps.length ? 2 : rank0[l.status];   // a gap coming outranks plain OK
+  const act = m.lines.filter(l => l.active).sort((a, b) => (rk(a) - rk(b)) || ((a.startBy || '9999') < (b.startBy || '9999') ? -1 : (a.startBy || '9999') > (b.startBy || '9999') ? 1 : 0) || (a.sort - b.sort));
+  const cnt = k => act.filter(l => flagsOf(l).includes(k)).length;
+  const rows = act.map((ln, i) => `<tbody data-i="${i}" data-f="${flagsOf(ln).join(' ')}"><tr class="sl-main">
+      <td data-v="${E(ln.name.toLowerCase())}"><button type="button" class="sl-x" aria-expanded="false" title="Show the figures behind this line">▸</button><a href="/analytics/sales/line?id=${ln.id}${keepT(q)}"><b>${E(ln.name)}</b></a></td>
+      <td data-v="${rk(ln)}">${statusChips(ln)}</td>
+      <td data-v="${ln.outAll || '9999'}">${runway(ln, m.now)}</td>
+      <td class="n" data-v="${Math.round(ln.est)}"><span class="big">${n0(ln.est)}</span>${ln.tankUnits + ln.planUnits >= 0.5 ? `<small>+ ${n0(ln.tankUnits + ln.planUnits)} in tank${ln.planUnits ? ' / planned' : ''}</small>` : ''}</td>
+      <td class="n" data-v="${Math.round(ln.annual)}"><span class="big">${n0(ln.annual)}</span></td>
+      <td data-v="${ln.outAll || (ln.annual ? '9998' : '')}"><span class="big">${ln.outAll ? mLabel(ln.outAll.slice(0, 7)) : ln.annual ? '5+ years' : '—'}</span>${ln.gaps.length ? ln.gaps.map(g => `<small class="sl-warn">gap ${mLabel(g.from.slice(0, 7))} – ${mLabel(g.to.slice(0, 7))}</small>`).join('') : ''}${ln.outBottled && (!ln.outAll || ln.outBottled.slice(0, 7) !== ln.outAll.slice(0, 7)) ? `<small>bottles alone: ${mLabel(ln.outBottled.slice(0, 7))}</small>` : ''}</td>
+      <td class="w" data-v="${ln.startBy || '9999'}">${actionText(ln, m.now)}</td></tr>${detailRow(ln, q)}</tbody>`).join('');
+  const chip = (k, label, cls) => cnt(k) ? `<button type="button" class="sl-f ${cls}" data-f="${k}">${cnt(k)} ${label}</button>` : '';
+  const summary = `<div class="sl-sum"><button type="button" class="sl-f on" data-f="">All ${act.length} lines</button>${chip('late', 'start overdue', 'f-late')}${chip('soon', 'start soon', 'f-soon')}${chip('gap', 'with a gap coming', 'f-late')}${chip('long', 'long on stock', 'f-long')}
+    <button type="button" id="sl-reset" class="btn2" style="margin-left:auto">Most urgent first</button><button type="button" id="sl-all" class="btn2">Expand all</button></div>`;
+  const legend = `<div class="sl-leg"><span><i style="background:#388bfd"></i>bottled stock</span><span><i style="background:#39c5cf"></i>carried by wine in tank / planned</span><span><i style="background:#f85149"></i>gap before tank wine is ready</span><span><i style="background:#f85149;opacity:.35"></i>out of stock unless another batch is made</span><span class="muted">left edge = today</span><span><b style="color:#e3b341">▼</b> start next batch by (<b style="color:#f85149">▼</b> = date passed)</span><span class="muted">hover a bar for dates</span></div>`;
   const off = m.lines.filter(l => !l.active);
   const otherItems = m.unlinedItems.filter(it => Math.round(it.oh) > 0 || it.t12 > 0);
   const lineOpts = m.lines.map(l => `<option value="${l.id}">${E(l.name)}</option>`).join('');
@@ -320,17 +412,19 @@ export function page_sales(c, q) {
     </tbody></table>` : '';
   const ign = m.ignoredTank.length ? `<p class="sl-help">Not for a line: ${m.ignoredTank.map(t => `<a href="/batch/${t.bid}">${E(t.code)}</a> ${n0(t.L)} L`).join(' · ')}.</p>` : '';
   const body = `${CSS}${TABS('sales')}${SUBTABS('annual', tq)}<h1>Annual sales &amp; runway</h1>${q.saved ? '<div class="ok">Saved.</div>' : ''}${head(m, q)}${typeChips(q, '/analytics/sales')}
-    <table class="sl"><thead><tr><th>Product line</th><th class="n">Bottled<br>est. now</th><th class="n">In tank<br>(units)</th><th class="n">Planned</th><th class="n">Sold, last<br>12 months</th><th class="n">Your annual<br>figure</th>
-    <th class="n">Years<br>bottled</th><th class="n">Years incl.<br>tank &amp; plans</th><th>Bottled<br>runs out</th><th>Runs out incl.<br>tank &amp; plans</th><th>Production<br>time</th><th>Can start</th><th>Start next<br>batch by</th><th>Next 24 months</th></tr></thead>
-    <tbody>${rows}</tbody></table>
+    ${summary}${legend}
+    <table class="sl nosort" id="sl-main"><thead><tr><th>Product line</th><th>Status</th><th>Next 3 years${rwHead(m.now)}</th><th class="n" data-first="desc">Bottled now<br>(est.)</th><th class="n" data-first="desc">Sells<br>per year</th><th>Runs out</th><th>What to do</th></tr></thead>
+    ${rows}</table>${SL_JS}
     <details class="sl-d"><summary>How these numbers are worked out</summary><div class="sl-help">
     <p><b>Bottled est. now</b> = on hand in the tracker today minus the sales not yet booked. Jen's tasting-room, Vinoshipper, eatery, wholesale and NHLC sales go in once a month; samples and family use go in as they happen. So after the last booked month (${mLabel(m.lastBooked)}) the month-end types are estimated: the line's yearly month-end sales × each month's seasonal share × the part of the month elapsed (${n1(m.elapsed)} months so far).</p>
-    <p><b>Sold, last 12 months</b> = bottles/cans dispatched (types chosen above) in the 12 months ending ${mLabel(m.lastBooked)}, club shipments (Vinoshipper) included. This is the runway rate unless a line is set to use <b>your annual figure</b> (seeded from the ANNUAL SALES sheet, column D, which is “no club” — so using it leaves club sales out of the runway).</p>
+    <p><b>Sells per year</b> = bottles/cans dispatched (types chosen above) in the 12 months ending ${mLabel(m.lastBooked)}, club shipments (Vinoshipper) included. This is the runway rate unless a line is set to use <b>your annual figure</b> (seeded from the ANNUAL SALES sheet, column D, which is “no club” — so using it leaves club sales out of the runway).</p>
     <p><b>Seasonal shape</b>: each calendar month's share of the year, pooled over up to three complete 12-month blocks of the line's own history and blended with a flat year (weight 1 against the number of blocks), so July draws down faster than February and October carries the fall club release. Wholesale and NHLC orders count in the rate but not in the shape (one big order would otherwise make its month look like a peak every year).</p>
     <p><b>In tank</b> = litres in the latest bulk snapshot × the line's share ÷ the line's unit size (0.75, 0.375 or 0.355 L; 0.55 for mixed cans/750s). Bottling losses are not taken off. A batch counts as ready on the day it is marked Ready for packaging; otherwise on its first day in a tank + the production time (or today, if that has passed). <b>Planned</b> batches count from the first of their ready month.</p>
-    <p><b>Gaps</b>: stock never goes below zero — a month with nothing to sell is lost sales, not a backorder. If bottled stock runs out before wine in tank is ready, the gap is shown in red under the run-out date.</p>
+    <p><b>Gaps</b>: stock never goes below zero — a month with nothing to sell is lost sales, not a backorder. If bottled stock runs out before wine in tank is ready, the gap is bright red on the bar and named under Runs out and What to do.</p>
     <p><b>Runs out</b> = the date the projected stock falls below the line's safety buffer (0 months unless set); incl. tank &amp; plans it is the last run-out, the one no wine in tank or planned batch refills. <b>Start next batch by</b> = that date − production time (fruit to bottle, seeded from ANNUAL SALES column S), moved back to the last month the wine can be started in when a season is set. Overdue = that date has passed; within 3 months = amber.</p>
-    <p><b>Next 24 months</b>: one block per month, coloured by months of stock left at its end incl. tank and plans — green 6+, amber 2–6, orange under 2, red out; ▲ marks wine coming ready; a tick marks January.</p>
+    <p><b>Order and flags</b>: lines are listed most urgent first — start overdue, then start soon (within 92 days), then lines with a gap coming, then by start-by date (the “Most urgent first” button restores this order after sorting). When a wine can only be started in certain months and this year's were missed, the line says when the next start is. <b>Gap coming</b> = bottles run out before the wine in tank is ready. <b>Long on stock</b> = bottled + tank + planned cover ${LONG_YEARS} or more years of sales at the rate used. Click a flag count above the table to show only those lines; click a column heading to sort.</p>
+    <p><b>Next 3 years bar</b>: blue runs to the day bottled stock alone runs out; teal is the stretch carried by wine in tank and planned batches; red is time with nothing to sell. ▼ marks the start-by date (red and at the left edge when it has passed).</p>
+    <p><b>Start overdue</b>: the note under it assumes a batch started today (or in the next month the wine can be started, when start months are set) and ready after the production time; the months with none to sell run from the run-out date to that ready date. It only knows wine that is in the tracker and assigned to the line.</p>
     <p>Costs, prices and margins from the ANNUAL SALES sheet are not used: the tracker keeps no ongoing costing.</p></div></details>
     ${ut}${ign}${other}
     ${off.length ? `<h2>Inactive lines</h2><p class="sl-help">${off.map(l => `<a href="/analytics/sales/line?id=${l.id}">${E(l.name)}</a>`).join(' · ')}</p>` : ''}
