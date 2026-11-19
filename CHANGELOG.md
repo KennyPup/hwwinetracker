@@ -1,6 +1,24 @@
 # HWWineTracker changelog
 Newest first. One entry per version: date · editor · what changed · anything Ken must check.
 
+## 1.76.0-cloud — 2026-11-20 · Claude
+Ciders use cider as the base liquid, not water (Ken: 26CranCider2's Make a batch screen showed 564 L of water; ciders have none).
+- New src/baseliquid.js: a formulation is cider-base when its category is Cider, its liquid is "cider", or a cider SG is set.
+- Make a batch: the plan row, the hints, the "record now" box and the entry field say **Cider** for cider-base formulations;
+  new optional "Cider from" (orchard). Recording now puts the cider in as a **Bulk juice/cider intake** into the vessel
+  (same record as the Intake page: TTB Part IV cider received; correctable like any intake), never as a Water addition.
+  Fruit wines and meads unchanged (water addition as before).
+- Start a batch (from fruit on hand): same rule when the chosen formulation is a cider or has a cider SG.
+- Batch checklist (formulation target), phone batch card and the doses note: "Cider" row counts bulk cider intakes on the
+  batch instead of water additions. Formulation page: step 4 reads Cider when a cider SG is set even if the category
+  isn't Cider; planned-vs-actual shows "Cider added" from the batch's bulk intakes.
+- A cider recorded at the start counts as the batch's start (Make a batch won't offer to record it a second time); the
+  checklist counts bulk intakes whose variety names cider, plus any Water additions (older cider batches were booked that way).
+- Maths unchanged (formulation.calc already treated the cider as the liquid when its SG is set). No table or stored data changed.
+Ken: open 26CranCider2's formulation and check Category = Cider and the Cider SG is your cider's SG (it drives the OG);
+then Make a batch should show Cider 564 L.
+(Opened as 1.75.0 in PR #5; renumbered 1.76.0 on 2026-11-20 because the desktop layout took 1.75.0.)
+
 ## 1.75.0-cloud — 2026-11-20 · Claude
 Desktop layout without the left menu, and a wine card beside the Batches list (Ken picked layout "D" from five mock-ups).
 - **Menus instead of the left rail (desktop, wider than 640 px):** four drop-downs in the breadcrumb row — Cellar (Batches,

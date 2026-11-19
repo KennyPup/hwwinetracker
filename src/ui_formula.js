@@ -8,6 +8,7 @@ import { ValueError, TypeError_, pyFloat, pyInt, pyStrip, isPyFloat, markFloat }
 import * as entry from './entry.js';
 import * as hw_ui from './hw_ui.js';
 import { batch_target, parse_mix } from './target.js';
+import * as BL from './baseliquid.js';
 
 // ------------------------------------------------------------------ Python-compatibility helpers
 // Python truthiness (NaN is truthy; empty list/dict falsy)
@@ -493,7 +494,8 @@ export function _actual_block(c, r, C) {
     ['Fruit', n(x.fruit) + ' lb', a.fruit_lb ? n(a.fruit_lb) + ' lb' : '— (no fruit intake on this batch)'],
     ['Fruit per gallon', n(r.fruit_lb_per_gal, 2) + ' lb/gal', a.fruit_lb && gal_a ? n(a.fruit_lb / gal_a, 2) + ' lb/gal' : '—'],
     [sw, n(x.lb) + ' lb', sw_a ? n(sw_a) + ' lb' : '—'],
-    ['Water added', n(x.water) + ' gal', a.water_gal ? n(a.water_gal) + ' gal' : '—'],
+    BL.is_cider(r) ? ['Cider added', n(x.water) + ' gal', (a.bulk_l || a.water_gal) ? n((a.bulk_l || 0) / F.GAL + (a.water_gal || 0)) + ' gal' : '—']
+      : ['Water added', n(x.water) + ' gal', a.water_gal ? n(a.water_gal) + ' gal' : '—'],
     ['Starting gravity', fx(x.og, 3), og_a ? `${fx(og_a[0], 3)} (${E(og_a[2])}, ${E(og_a[1])})` : '—'],
     ['Final gravity', n(r.fg, 3), a.sg_end ? `${fx(a.sg_end[0], 3)} (${E(a.sg_end[1])})` : '—'],
     ['Alcohol', n(x.abv, 2) + ' %', a.alcohol ? `${fx(a.alcohol[0], 2)} % (${E(a.alcohol[1])})` : '—']];
@@ -629,7 +631,7 @@ function upd(){const f={};['target_l','brix_fruit','fruit_lb_per_gal','juice_gal
  set('t_bd',lsg&&none?'Brix desired (used only with a sweetener)':'Brix desired');
  set('t_bs',none?(lsg?'Brix from sweetener (none)':(cider?'Brix supplied by the cider':'Brix still to add (no sweetener chosen)')):'Brix from '+sw.toLowerCase());
  set('o_bcl',lsg?'= '+x.bcl.toFixed(1)+' °Bx':'');set('o_bc',lsg?fmt(x.bc,2):'—');set('o_sgc',lsg?'SG '+x.sgc.toFixed(4):'');
- set('t_vol',none?'Sweetener volume':sw+' volume');set('t_w',cider?'Cider':'Water');set('t_wl',cider?'Cider addition':'Water addition');
+ set('t_vol',none?'Sweetener volume':sw+' volume');set('t_w',(cider||lsg)?'Cider':'Water');set('t_wl',(cider||lsg)?'Cider addition':'Water addition');
  set('o_gal',fmt(x.gal,1));set('o_bottles',fmt(x.bottles,0));set('o_cases',fmt(x.cases,1));set('o_fruit',fmt(x.fruit,1));set('o_boxes',fmt(x.boxes,1));
  set('o_juice',fmt(x.juice,1));set('o_juice2',fmt(x.juice,1));set('o_bf',fmt(x.bf,2));set('o_sgf','SG '+x.sgf.toFixed(4));set('o_bs',fmt(x.bs,2));set('o_sgs','SG '+x.sgs.toFixed(4));
  set('o_lb',fmt(x.lb,1));set('o_vol',fmt(x.vol,1));set('o_vol2',fmt(x.vol,1));set('o_water',fmt(x.water,1));set('o_waterl',fmt(x.water_l,0));
@@ -910,7 +912,7 @@ export function additions_page(c, q, token) {
       const keepq = Object.entries({ vessel: vsel, batch: bsel, cider: cider ? '1' : '' }).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
       const sw = `<span class="chips" style="display:inline-flex;margin:0 0 0 8px;vertical-align:middle"><a class="${basis === 'target' ? 'on' : ''}" href="/additions?${keepq}&basis=target">Formulation target ${fxc(T.target_l, 0)} L</a>` +
         `<a class="${basis === 'now' ? 'on' : ''}" href="/additions?${keepq}&basis=now">Now in the vessel ${fxc(V, 1)} L</a></span>`;
-      tnote = `<p class="sub">Doses figured on: ${sw}<br><span class="muted" style="font-size:12px">${E(T.name)} targets ${fxc(T.target_l, 0)} L; ${fxc(V, 1)} L is in the vessel now (water in ${fxc(T.water_in, 1)} of ${fxc(T.water_l, 1)} L). After pressing or once the volume is final, switch to “Now in the vessel”.</span></p>`;
+      tnote = `<p class="sub">Doses figured on: ${sw}<br><span class="muted" style="font-size:12px">${E(T.name)} targets ${fxc(T.target_l, 0)} L; ${fxc(V, 1)} L is in the vessel now (${T.liq.toLowerCase()} in ${fxc(T.water_in, 1)} of ${fxc(T.water_l, 1)} L). After pressing or once the volume is final, switch to “Now in the vessel”.</span></p>`;
       if (basis === 'target') V = T.target_l;
     }
   }
