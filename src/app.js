@@ -36,6 +36,7 @@ import * as startbatch from './startbatch.js';
 import * as makebatch from './makebatch.js';
 import * as daily from './daily.js';
 import * as stage from './stage.js';
+import * as BC from './batchcard.js';
 ui_entry.setTiles2(ui_entry2.TILES);
 import { ICON_PNG, ICON_192, ICON_512 } from './gen/icon.js';
 
@@ -177,6 +178,7 @@ export function handleGet(c, u) {
   if ((m = path.match(/^\/material\/(\d+)$/))) { const out = matstock.p_material(c, Number(m[1]), q, TOKEN, q.saved ? '<div class="ok">Saved.</div>' : ''); return out ? html(out) : html(page('Not found', '<h1>Not found</h1>'), 404); }
   if (path === '/intakes') return html(onhand.p_intakes(c, q, TOKEN, q.saved ? '<div class="ok">Saved.</div>' : ''));
   if (path === '/intakes/lot') { const out = onhand.p_lot(c, q, TOKEN, q.saved ? '<div class="ok">Saved.</div>' : ''); return out ? html(out) : html(page('Not found', '<h1>Not found</h1>'), 404); }
+  if (path === '/batches/card') { const id = parseInt(qv(q, 'id', ''), 10); return html(Number.isFinite(id) ? BC.card(c, id) : '<p class="muted">Wine not found.</p>'); }   // v1.75 wine card fragment (Batches list)
   if (path === '/costs') return html(extras.p_costs(c, q));
   if (path === '/workorders') return html(extras.p_workorders(c, q));
   if (path === '/bookings') return html(extras.p_bookings(c, q));
@@ -189,7 +191,7 @@ export function handleGet(c, u) {
     let dest = to === 'cellar' ? '/m' : '/', mm;
     if (to === 'cellar') {
       if ((mm = from.match(/^\/vessel\/(\d+)/))) dest = `/m/v/${mm[1]}`;
-      else if ((mm = from.match(/^\/batch\/(\d+)/))) {
+      else if ((mm = from.match(/^\/batch\/(\d+)/) || from.match(/^\/batches\?(?:.*&)?sel=(\d+)/))) {   // v1.75: + the wine selected on Batches
         const v = c.val(`SELECT s.vessel_id FROM bulk_snapshot s JOIN vessel v ON v.id=s.vessel_id WHERE s.batch_id=? AND s.snap_date=(SELECT MAX(snap_date) FROM bulk_snapshot)
                          ORDER BY (v.kind='barrel_group'), s.volume_l DESC LIMIT 1`, Number(mm[1]));
         if (v) dest = `/m/v/${v}`;

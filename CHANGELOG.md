@@ -1,6 +1,32 @@
 # HWWineTracker changelog
 Newest first. One entry per version: date · editor · what changed · anything Ken must check.
 
+## 1.75.0-cloud — 2026-11-20 · Claude
+Desktop layout without the left menu, and a wine card beside the Batches list (Ken picked layout "D" from five mock-ups).
+- **Menus instead of the left rail (desktop, wider than 640 px):** four drop-downs in the breadcrumb row — Cellar (Batches,
+  Vessels, Dashboard), Winemaking (Formulations, Prototype wines, Additions, Constants), Inventory (Stock, Materials,
+  Intakes, Dispatches), Business (Analytics, Reports, Costs, Contacts) — each entry with a one-line description. Cellar view
+  and Help moved to the top bar. The HW logo now opens Batches; the About splash the logo used to open is under
+  Business › About (and on "Hermit Woods / date", top right, on wide screens). "/" is still the Dashboard. Phone widths (640 px and under) keep the slide-out menu exactly
+  as before; the cellar (phone) view is untouched. A page added to the menu list later lands in the last menu automatically.
+- **Batches: wine card (screens wider than 1100 px).** Click a row and that wine opens in a card on the right without
+  leaving the list: ＋ Record (same menu; the entry forms return to Batches with that wine's card open, on the default filters), its vessels with
+  Addition and ⚖ Adjust volume per vessel, last note (film-yeast flag as on the Film yeast tab), Lab readings / Note buttons,
+  volume, type, last operation, last topping (barrels), and links to every batch tab. The batch code in the card, a
+  double-click on a row, or Ctrl/middle-click on a code opens the full batch page. With the card showing, the list drops the
+  Year and Type columns (Type is in the card); narrower screens keep the old list and links.
+- **Free SO₂ runway (in the card, wines not fermenting):** one line per vessel — readings (dots), KMS additions (green
+  ticks), the estimate to today and its projection, the range at today, and the 0.5 / 0.8 molecular target lines at the
+  wine's pH (3.6 assumed until a pH is recorded, as before). Headline: estimate today in the vessel that needs KMS first,
+  "Add KMS by <date>" or "Below 0.5 molecular — add KMS now", and the KMS grams for 0.8 molecular. A wine with no free SO₂
+  reading is drawn dashed and marked as an estimate. All figures are the batch page's SO₂ table figures (so2.status); the
+  one new calculation is the date: days = ln(estimate ÷ 0.5-molecular target) ÷ k, per vessel.
+- **Batches: "Free SO₂ est." column** — estimate today in the lowest vessel with a bar against its 0.5 target; "?" = no
+  reading yet. Sorts by distance above/below the target; the first click lists the wine that needs KMS first.
+No table or stored data changed (display only; so2.status returns extra fields, opmenu's return-to list gained
+/batches?sel=; table sorting keeps a heading's own tooltip and honours data-first="asc"). New file src/batchcard.js. Checked on a local copy of the 2026-10-02 backup, not on today's data.
+Ken: after merge the splash shows 1.75.0-cloud; check a wine with a fresh free SO₂ reading and one in several vessels.
+
 ## 1.74.0-cloud — 2026-11-19 · Claude
 Analytics › Sales: the Annual sales & runway table redesigned for a quick read (Ken: columns hard to read, too much at once).
 - Seven columns: product line, status flag (Start overdue / Start soon / Gap coming / Long on stock / OK), a 3-year stock

@@ -14,11 +14,11 @@ function setup(t){
   var rows=[].slice.call(body.rows).filter(function(r){return !grp(r)});if(rows.length<2||rows.some(function(r){return [].some.call(r.cells,function(c){return c.colSpan>1||c.rowSpan>1})}))return;
   t.dataset.srt='1';
   [].forEach.call(head.rows[head.rows.length-1].cells,function(th,ci){
-    th.classList.add('srt');th.title='Sort';
+    th.classList.add('srt');if(!th.title)th.title='Sort';
     th.addEventListener('click',function(){
       [].forEach.call(body.rows,function(r){if(grp(r))r.style.display='none'});var rs=[].slice.call(body.rows).filter(function(r){return !grp(r)}),vs=rs.map(function(r){return txt(r.cells[ci])}),ne=vs.filter(function(v){return v!==''});
       var isNum=ne.length&&ne.filter(function(v){return NUM.test(v)}).length>=ne.length*0.8;
-      var dir=th.dataset.dir?(th.dataset.dir==='desc'?'asc':'desc'):(isNum?'desc':'asc');
+      var dir=th.dataset.dir?(th.dataset.dir==='desc'?'asc':'desc'):(th.dataset.first||(isNum?'desc':'asc'));
       [].forEach.call(head.querySelectorAll('th'),function(h){delete h.dataset.dir});th.dataset.dir=dir;
       var m=dir==='asc'?1:-1,ix=rs.map(function(r,i){return i});
       ix.sort(function(a,b){var x=vs[a],y=vs[b];if(x===''&&y==='')return a-b;if(x==='')return 1;if(y==='')return -1;
