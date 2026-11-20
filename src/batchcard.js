@@ -111,14 +111,20 @@ function so2_block(c, bid, fermenting, nowCount, cal) {
   else if (d === null) act = '<span class="rw-a">No decay rate yet for this vessel</span>';
   else act = `<span class="rw-a${d <= 14 ? ' mid' : ''}">Add KMS by <b>${E(dlong(now + d * DAY))}</b> · ${d < 1.5 ? 'about a day' : `${Math.round(d)} days`}</span>`;
   const none = rows.every(x => !x.f && !x.hist.terms.length);
+  // v1.77: pH stated plainly — the targets and the KMS grams all follow from it
+  const phTxt = x => x.psrc === 'assumed' ? 'assumed — no pH reading yet' : `${x.psrc === 'lot' ? 'lot reading' : 'measured'} ${E(dlong(x.ph.t))}`;
+  const phs = [...new Set(rows.map(x => `${num(x.ph.x, 2)}|${x.psrc}`))];
+  const tgt = tf !== null ? `<span class="muted">targets at this pH: 0.5 molecular = ${num(tf, 0)} · 0.8 molecular = ${r.tg && r.tg[1] ? num(r.tg[1].tf, 0) : '—'} mg/L free</span>` : '';
+  const phRow = phs.length === 1
+    ? `<div class="rw-ph${r.psrc === 'assumed' ? ' asm' : ''}"><span>pH</span><b>${num(r.ph.x, 2)}</b><em>${phTxt(r)}</em>${tgt}</div>`
+    : `<div class="rw-ph"><span>pH</span>${rows.map(x => `<b${x.psrc === 'assumed' ? ' class="asm"' : ''}>${num(x.ph.x, 2)}</b><em${x.psrc === 'assumed' ? ' class="asm"' : ''}>${E(x.code)} · ${phTxt(x)}</em>`).join('')}${tgt ? `<span class="muted">target lines drawn for ${E(r.code)}: 0.5 = ${num(tf, 0)} · 0.8 = ${r.tg && r.tg[1] ? num(r.tg[1].tf, 0) : '—'} mg/L</span>` : ''}</div>`;
   const notes_ = [];
-  if (rows.some(x => x.psrc === 'assumed')) notes_.push(`pH ${num(r.ph.x, 1)} assumed — no pH reading yet; the targets move once one is recorded`);
+  if (rows.some(x => x.psrc === 'assumed')) notes_.push('record a pH to firm up the targets and the KMS grams');
   if (rows.some(x => !x.f)) notes_.push(none ? 'no free SO₂ reading and no KMS since fermentation — measure free SO₂' : 'no free SO₂ reading yet — dashed line is an estimate from the KMS added; measure to confirm');
   else if (rows.some(x => x.warn.includes('re-test recommended'))) notes_.push('last reading is old — re-test recommended');
-  if (rows.length > 1 && rows.some(x => t05(x) !== null && Math.abs(t05(x) - tf) > 0.5)) notes_.push(`target lines are for ${r.code}; the other vessels have a different pH`);
   const legend = rows.map((x, i) => `<span><i style="background:${COL[i % COL.length]}"></i><a href="/vessel/${x.vid}">${E(x.code)}</a> <b>${num(x.est, 0)}</b>${x.f ? ` <em>last read ${num(x.f.x, 0)}${x.fsrc === 'lot' ? ' (lot)' : ''} · ${x.age < 1 ? 'today' : `${Math.round(x.age)} d ago`}</em>` : ' <em>no reading</em>'}</span>`).join('');
   return `<div class="rw"><div class="rw-h"><b>Free SO₂ runway</b><span>est. today <b class="rw-e">${num(r.est, 0)}</b> mg/L${rows.length > 1 ? ` in ${E(r.code)} (needs KMS first)` : ''}</span></div>
-<div class="rw-act">${act}${gtxt ? `<span class="muted">${E(gtxt)}</span>` : ''}</div>
+<div class="rw-act">${act}${gtxt ? `<span class="muted">${E(gtxt)}</span>` : ''}</div>${phRow}
 ${none ? '' : chart(rows, now)}<div class="rw-l">${legend}</div>${notes_.length ? `<p class="rw-n">${notes_.map(E).join(' · ')}</p>` : ''}</div>`;
 }
 
@@ -143,6 +149,7 @@ export const CSS = `<style>.bl{display:flex;gap:18px;align-items:flex-start}.bl-
 .bc-d{font-size:15px;color:var(--fg2);margin:6px 0 10px}.bc-d .stpill{margin-left:8px;vertical-align:middle}
 .rw{border-top:1px solid var(--line);padding:10px 0 12px}.rw-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}.rw-h b{color:var(--fg2);font-weight:600}.rw-h span{margin-left:auto;font-size:13px}.rw-e{font-size:18px}
 .rw-act{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:4px 0 6px;font-size:13px}.rw-a{color:var(--fg2);font-weight:600}.rw-a.lo{color:#ff7b72}.rw-a.mid{color:#e3b341}
+.rw-ph{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:2px 0 8px;padding:6px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;font-size:13px}.rw-ph>span:first-child{color:var(--mut);font-weight:600}.rw-ph b{font-size:20px;color:var(--fg2);font-weight:650}.rw-ph em{font-style:normal;color:var(--mut);margin-right:8px}.rw-ph .muted{flex-basis:100%;font-size:12px}.rw-ph.asm{border-color:rgba(227,179,65,.55)}.rw-ph.asm b,.rw-ph.asm em,.rw-ph b.asm,.rw-ph em.asm{color:#e3b341}
 .rw-svg{display:block;width:100%;height:auto}.rw-svg text{font-size:10.5px;fill:var(--mut)}.rw-svg text.hl{paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round}
 .rw-l{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;margin-top:4px}.rw-l i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}.rw-l b{color:var(--fg2)}.rw-l em{font-style:normal;color:var(--mut);font-size:12px}
 .rw-n{margin:6px 0 0;font-size:12px;color:#e3b341}p.muted.rw-n{color:var(--mut)}

@@ -1,6 +1,13 @@
 # HWWineTracker changelog
 Newest first. One entry per version: date · editor · what changed · anything Ken must check.
 
+## 1.77.0-cloud — 2026-11-20 · Claude
+Wine card: pH shown plainly in the Free SO₂ runway (Ken: the pH drives what KMS is needed).
+- New pH box under the headline: the pH in large type, where it came from ("measured <date>", "lot reading <date>", or
+  "assumed — no pH reading yet" in amber when the 3.6 default is used, per vessel too), and the free SO₂ targets that pH gives
+  (0.5 and 0.8 molecular, mg/L). When a wine's vessels have different pH readings, each vessel's pH is listed and the
+  box says which vessel the target lines are drawn for.
+- Same pH, source and targets as the batch page's SO₂ table (so2.status); nothing recalculated. Display only.
 ## 1.76.0-cloud — 2026-11-20 · Claude
 Ciders use cider as the base liquid, not water (Ken: 26CranCider2's Make a batch screen showed 564 L of water; ciders have none).
 - New src/baseliquid.js: a formulation is cider-base when its category is Cider, its liquid is "cider", or a cider SG is set.
