@@ -11,6 +11,7 @@ import * as F from './formulation.js';
 import { captured } from './correct.js';
 import { _when_field } from './ui_entry.js';
 import { unstarted, started } from './startbatch.js';
+import * as BL from './baseliquid.js';
 
 const LB = 0.45359237;
 const TYPE = { 'Fruit wine': 'Fruit Wine', Mead: 'Mead', Cider: 'Cider' };
@@ -31,7 +32,7 @@ export function plan_of(c, r) {
   const k = sw === 'honey' ? 1 / C.honeyLbPerGal : C.sugarVol;
   const sweet_l = lb * k * C.lPerGal, juice_l = x.juice * C.lPerGal;
   const water_l = Math.max((r.target_l || 0) - juice_l - sweet_l, 0);
-  return { C, sw, target_l: r.target_l || 0, fruit_lb: x.fruit, juice_l, water_l, sweet_lb: lb, sweet_l, og: r.brix_desired > 0 ? x.og : null, abv: r.brix_desired > 0 && r.fg ? x.abv : null };
+  return { C, sw, cider: BL.is_cider(r), liq: BL.word(r), target_l: r.target_l || 0, fruit_lb: x.fruit, juice_l, water_l, sweet_lb: lb, sweet_l, og: r.brix_desired > 0 ? x.og : null, abv: r.brix_desired > 0 && r.fg ? x.abv : null };
 }
 
 function code_for(r) {
@@ -54,10 +55,10 @@ export function make_page(c, fid, token, err = '', f = null) {
   const card = `<table style="max-width:640px"><tbody>
     <tr><td>Batch size</td><td class="n"><b>${fm(P.target_l, 0)} L</b></td><td class="muted">${fm(P.target_l / 3.785411784, 1)} gal</td></tr>
     <tr><td>Fruit</td><td class="n"><b>${fm(P.fruit_lb, 1)} lb</b></td><td class="muted">${fm(P.fruit_lb * LB, 1)} kg · ${fm(r.fruit_lb_per_gal, 2)} lb/gal</td></tr>
-    <tr><td>Water</td><td class="n"><b>${fm(P.water_l, 1)} L</b></td><td class="muted">${fm(P.water_l / 3.785411784, 1)} gal</td></tr>
+    <tr><td>${P.liq}</td><td class="n"><b>${fm(P.water_l, 1)} L</b></td><td class="muted">${fm(P.water_l / 3.785411784, 1)} gal</td></tr>
     ${P.sw === 'none' ? '' : `<tr><td>${swn}</td><td class="n"><b>${fm(P.sweet_lb, 1)} lb</b></td><td class="muted">${fm(P.sweet_lb * LB, 1)} kg</td></tr>`}
     <tr><td>Starting gravity / alcohol</td><td class="n">${P.og ? P.og.toFixed(3) : '—'}</td><td class="muted">${P.abv ? fm(P.abv, 1) + ' % ABV potential' : ''}</td></tr></tbody></table>
-    <p class="sub"><a href="/formula/${fid}">← change the formulation</a> (fruit, sugar, water, batch size) — this screen uses it as saved.</p>`;
+    <p class="sub"><a href="/formula/${fid}">← change the formulation</a> (fruit, sugar, ${P.liq.toLowerCase()}, batch size) — this screen uses it as saved.</p>`;
   const head = `<h1>Make a batch from ${E(r.name)}</h1>${err}<h2>The plan</h2>${card}`;
   if (!(P.target_l > 0 && r.fruit_lb_per_gal > 0)) {
     return page('Make a batch', head + `<div class="warnbox">This formulation has no recipe numbers yet. On the <a href="/formula/${fid}">formulation page</a> use <b>Fill from</b> to take them from a past formulation, adjust, save, then come back.</div>`, '/formula/', crumbs);
@@ -92,12 +93,13 @@ export function make_page(c, fid, token, err = '', f = null) {
   const mats = c.all("SELECT id, name, kind FROM material WHERE kind IN ('sugar','honey') AND COALESCE(retired,0)=0 ORDER BY kind, name");
   const want = P.sw === 'honey' ? 'honey' : 'sugar';
   const defm = (mats.find(m => m.kind === want && /cane/i.test(m.name)) || mats.find(m => m.kind === want) || {}).id;
+  const lq = P.liq.toLowerCase();
   const water0 = begun ? r1(Math.max(P.target_l - begun.vol - P.sweet_l, 0)) : r1(P.water_l);
   const types = entry.BEVERAGE_TYPES.map(t => `<option ${g0(f, 'beverage_type', TYPE[r.category] || 'Fruit Wine') === t ? 'selected' : ''}>${E(t)}</option>`).join('');
   const vessel = begun
-    ? `<div class="infobox" style="flex-basis:100%"><b>${E(begun.code)}</b> is already in <b>${E(begun.vcode)}</b> with ${fm(begun.vol, 1)} L (${fm(begun.vol / 3.785411784, 1)} gal)${begun.cap ? ' of ' + fm(begun.cap, 0) + ' L' : ''}${begun.fruit.length ? ' — fruit in: ' + begun.fruit.map(x => `${E(x.item)} ${x.lb} lb`).join(', ') : ''}. The water and ${swn.toLowerCase()} go in there; the water shown tops it up to ${fm(P.target_l, 0)} L.${begun.cap && P.target_l > begun.cap * 1.02 ? ' <b>The batch size is more than that vessel holds.</b>' : ''}</div>`
+    ? `<div class="infobox" style="flex-basis:100%"><b>${E(begun.code)}</b> is already in <b>${E(begun.vcode)}</b> with ${fm(begun.vol, 1)} L (${fm(begun.vol / 3.785411784, 1)} gal)${begun.cap ? ' of ' + fm(begun.cap, 0) + ' L' : ''}${begun.fruit.length ? ' — fruit in: ' + begun.fruit.map(x => `${E(x.item)} ${x.lb} lb`).join(', ') : ''}. The ${lq} and ${swn.toLowerCase()} go in there; the ${lq} shown tops it up to ${fm(P.target_l, 0)} L.${begun.cap && P.target_l > begun.cap * 1.02 ? ' <b>The batch size is more than that vessel holds.</b>' : ''}</div>`
     : `<label>Vessel${vsel}</label><label id="lab_fill">Fruit / juice going in<input name="fill_l" inputmode="decimal" size="7" value="${E(g0(f, 'fill_l', r1(P.juice_l)))}"> L</label>
-       <p class="hint muted">The formulation counts the fruit as ${fm(P.juice_l, 1)} L of juice; water and ${swn.toLowerCase()} bring it to ${fm(P.target_l, 0)} L.</p>`;
+       <p class="hint muted">The formulation counts the fruit as ${fm(P.juice_l, 1)} L of juice; ${lq}${P.sw === 'none' ? ' brings' : ' and ' + swn.toLowerCase() + ' bring'} it to ${fm(P.target_l, 0)} L.</p>`;
   const body = `${head}
     <form class="entry sb" method="post" action="/makebatch?f=${fid}"><input type="hidden" name="_t" value="${E(token)}">
       <h2 style="flex-basis:100%">Batch</h2>
@@ -107,8 +109,10 @@ export function make_page(c, fid, token, err = '', f = null) {
       ${begun ? '' : (r.batch_id ? '<p class="hint muted">Continues the batch already made for this formulation (no records yet).</p>' : '')}
       <h2 style="flex-basis:100%">Fruit from on hand <span class="muted" style="font-weight:400;font-size:13px">— plan ${fm(P.fruit_lb, 1)} lb${already ? `, ${fm(already, 1)} lb already in` : ''}</span></h2>${lotRows}
       <h2 style="flex-basis:100%">Into a vessel</h2>${vessel}
-      <label class="lot" style="flex-basis:100%"><input type="checkbox" name="rec_add" value="1" ${f && f.rec_add ? 'checked' : ''}> record the water and ${swn.toLowerCase()} now${begun ? '' : ' (needs a vessel)'} <span class="muted" style="font-size:12px">— usually left off: they go in later, a little at a time, as Additions. The batch keeps the formulation's ${fm(P.target_l, 0)} L as its target.</span></label>
-      <label>Water<input name="water_l" inputmode="decimal" size="7" value="${E(g0(f, 'water_l', water0))}"> L</label>
+      <label class="lot" style="flex-basis:100%"><input type="checkbox" name="rec_add" value="1" ${f && f.rec_add ? 'checked' : ''}> record the ${lq}${P.sw === 'none' ? '' : ' and ' + swn.toLowerCase()} now${begun ? '' : ' (needs a vessel)'} <span class="muted" style="font-size:12px">— usually left off: they go in later, a little at a time, as ${P.cider ? 'Intakes (bulk cider) and Additions' : 'Additions'}. The batch keeps the formulation's ${fm(P.target_l, 0)} L as its target.</span></label>
+      <label>${P.liq}<input name="water_l" inputmode="decimal" size="7" value="${E(g0(f, 'water_l', water0))}"> L</label>${P.cider ? `
+      <label>Cider from<input name="cider_from" size="16" value="${E(g0(f, 'cider_from'))}" placeholder="orchard (optional)"></label>
+      <p class="hint muted">The cider is recorded as a bulk cider intake into the vessel (TTB Part IV, cider received), not as water. If you already received this cider on the Intake page, leave "record now" off so it isn't counted twice.</p>` : ''}
       ${P.sw === 'none' ? '' : `<label>${swn}<input name="sweet_lb" inputmode="decimal" size="7" value="${E(g0(f, 'sweet_lb', r1(P.sweet_lb)))}"> lb</label>
       <label>From stock<select name="sweet_mid">${mats.map(m => `<option value="${m.id}" ${String(g0(f, 'sweet_mid', defm)) === String(m.id) ? 'selected' : ''}>${E(m.name)}</option>`).join('')}</select></label>`}
       <label class="wide">Notes<input name="notes" size="50" value="${E(g0(f, 'notes'))}" placeholder="optional"></label>
@@ -131,7 +135,7 @@ export function post_make(c, fid, f) {
   const lots = c.all("SELECT * FROM ingredient_lot WHERE status='on_hand' AND kind='fruit'").filter(l => g('use_' + l.id));
   for (const l of lots) if (!(numOrNull(g('amt_' + l.id)) > 0)) return [null, `${l.item}: enter the pounds used.`];
   const water_l = numOrNull(g('water_l')) || 0, sweet_lb = P.sw === 'none' ? 0 : (numOrNull(g('sweet_lb')) || 0);
-  if (water_l < 0 || sweet_lb < 0) return [null, 'Water and sweetener can’t be negative.'];
+  if (water_l < 0 || sweet_lb < 0) return [null, `${P.liq} and sweetener can’t be negative.`];
   // the batch: the one already linked, one created but not started with this code, or a new one
   let bid, existing = null;
   const ex = r.batch_id ? c.one('SELECT id, code FROM batch WHERE id=?', r.batch_id) : c.one('SELECT id, code FROM batch WHERE lower(code)=lower(?)', code);
@@ -146,7 +150,7 @@ export function post_make(c, fid, f) {
   const fruitTxt = lots.map(l => `${l.item} ${g('amt_' + l.id)} lb`).join(', ');
   c.run('UPDATE formula SET batch_id=?, fruit_notes=?, source=?, updated_at=? WHERE id=?', bid,
     [r.fruit_notes, fruitTxt ? `Fruit used ${day}: ${fruitTxt}` : ''].filter(x => x).join('\n') || null,
-    [r.source, `Made batch ${bcode} on ${day}: ${g('rec_add') ? `water ${water_l} L${P.sw === 'none' ? '' : `, ${P.sw} ${sweet_lb} lb`} recorded` : 'water and sweetener to be added later'}`].filter(x => x).join(' · '), nowIso(), fid);
+    [r.source, `Made batch ${bcode} on ${day}: ${g('rec_add') ? `${P.liq.toLowerCase()} ${water_l} L${P.sw === 'none' ? '' : `, ${P.sw} ${sweet_lb} lb`} recorded` : `${P.liq.toLowerCase()} and sweetener to be added later`}`].filter(x => x).join(' · '), nowIso(), fid);
   for (const l of lots) {
     const [ok, err] = onhand.post_lot(c, { action: ['use'], id: [String(l.id)], use_amount: [g('amt_' + l.id)], use_unit: ['lb'], batch_id: [String(bid)],
       when: [day > today() ? today() : day], note: [`into ${bcode}`] });
@@ -172,10 +176,9 @@ export function post_make(c, fid, f) {
       captured(c, '/record/addition', form, () => { entry.record_addition(c, t, Number(v), mid, String(amount), unit, String(after), `start of ${bcode}`, [], ''); return ['ok', null]; });
     };
     if (water_l > 0) {
-      const wmat = c.val("SELECT id FROM material WHERE kind='water' AND COALESCE(retired,0)=0 ORDER BY id LIMIT 1");
-      if (!wmat) return [null, 'No Water material — add one on Materials.'];
       vol = r1(vol + water_l);
-      add(later(1), wmat, water_l, 'L', vol);
+      const err = BL.record(c, { cider: P.cider, t: later(1), bid, bcode, v, litres: water_l, after: vol, supplier: g('cider_from') });
+      if (err) return [null, err];
     }
     if (sweet_lb > 0) {
       const m = c.one('SELECT id, kind FROM material WHERE id=?', Number(g('sweet_mid')));

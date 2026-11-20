@@ -5,6 +5,7 @@
 // fruit (by fruit when the formulation has a fruit mix), water, sugar/honey (each addition listed), and the cookbook's start
 // additions (KMS, pectic enzymes, yeast, GoFerm) and the two FermaidK additions, all dosed on the target volume.
 import * as F from './formulation.js';
+import * as BL from './baseliquid.js';
 
 const LB = 0.45359237;
 
@@ -26,9 +27,12 @@ export function batch_target(c, bid) {
   const sweet_l = lb * k * C.lPerGal, juice_l = x.juice * C.lPerGal;
   const water_l = Math.max((r.target_l || 0) - juice_l - sweet_l, 0);
   const adds = additions(c, bid);
-  const water_in = adds.filter(a => a.kind === 'water').reduce((s, a) => s + a.l, 0);
+  const cider = BL.is_cider(r);   // v1.75: cider-base wines take cider (bulk intakes), not water
+  // cider-base: bulk cider intakes, plus any Water additions (cider batches before v1.75 were recorded that way)
+  const liq_in = cider ? BL.cider_in(c, bid).concat(adds.filter(a => a.kind === 'water')).sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0)) : adds.filter(a => a.kind === 'water');
+  const water_in = liq_in.reduce((s, a) => s + a.l, 0);
   const sweet_in = adds.filter(a => a.kind === 'sugar' || a.kind === 'honey').reduce((s, a) => s + a.lb, 0);
-  return { r, C, x, fid: r.id, name: r.name, target_l: r.target_l, sw, water_l, sweet_lb: sw === 'none' ? 0 : lb, fruit_lb: x.fruit || 0, water_in, sweet_in, adds };
+  return { r, C, x, fid: r.id, name: r.name, target_l: r.target_l, sw, water_l, sweet_lb: sw === 'none' ? 0 : lb, fruit_lb: x.fruit || 0, water_in, sweet_in, adds, cider, liq: BL.word(r), liq_in };
 }
 
 // every addition on the batch (not reversed), oldest first, in g / ml / lb / L
@@ -104,11 +108,11 @@ export function batch_plan(c, bid) {
   sections.push(['Fruit', fr]);
 
   // water and sweetener
-  const wat = A.filter(a => a.kind === 'water');
+  const wat = T.liq_in;
   const swA = A.filter(a => a.kind === 'sugar' || a.kind === 'honey');
-  const lq = [row('Water', T.water_l, T.water_in, 'L', { events: wat.map(a => [a.t, a.l, 'L']) })];
+  const lq = [row(T.liq, T.water_l, T.water_in, 'L', { events: wat.map(a => [a.t, a.l, 'L']) })];
   if (T.sw !== 'none') lq.push(row(T.sw === 'honey' ? 'Honey' : 'Sugar', T.sweet_lb, T.sweet_in, 'lb', { events: swA.map(a => [a.t, a.lb, 'lb']), split: true }));
-  sections.push(['Water and ' + (T.sw === 'honey' ? 'honey' : T.sw === 'sugar' ? 'sugar' : 'sweetener'), lq]);
+  sections.push([T.liq + ' and ' + (T.sw === 'honey' ? 'honey' : T.sw === 'sugar' ? 'sugar' : 'sweetener'), lq]);
 
   // start additions: first KMS, pectic enzymes, yeast, GoFerm
   const kms = A.filter(a => a.kind === 'sulfite' || /kms|metabisulfite/i.test(a.name));
