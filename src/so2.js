@@ -189,7 +189,10 @@ export function status(c, bid, cal = null, asof = null) {
     if (tg[1] && tg[1].tf > C.so2TargetMax) warn.push(`0.8 molecular needs ${num(tg[1].tf, 0)} mg/L free (pH ${num(ph.x, 2)})`);
     if (tot !== null && tot > C.so2TotalMax) warn.push(`est. total SO₂ ${num(tot, 0)} mg/L, above ${num(C.so2TotalMax, 0)}`);
     const ms = v.kind === 'barrel_group' ? VU.members(c, v.id) : [];
-    return { vid: x.vessel_id, code: x.vessel, kind: v.kind, type: kk.type, V, members: ms, f, fsrc, age, ph, psrc, ts, tot, est: e, lo, hi, k: kk, R: Rnext, tg, warn, addsSince: addsSince.length };
+    // v1.75 (wine card runway chart): this vessel's readings and KMS additions since the wine came in, and the terms of today's estimate
+    const hist = { F: mine.filter(e => e.k === 'F').map(e => ({ t: e.t, x: e.x })), A: mine.filter(e => e.k === 'A').map(e => ({ t: e.t, ppm: e.ppm || 0 })),
+      terms: addsSince.map(a => ({ t: a.t, eff: (a.ppm || 0) * cal.Rhat(bid, prior(D.lots, bid, a.t)) })) };
+    return { vid: x.vessel_id, code: x.vessel, kind: v.kind, type: kk.type, V, members: ms, f, fsrc, age, ph, psrc, ts, tot, est: e, lo, hi, k: kk, R: Rnext, tg, warn, addsSince: addsSince.length, hist, now };
   }).sort((a, b) => String(a.code).localeCompare(String(b.code), 'en', { numeric: true }));
 }
 

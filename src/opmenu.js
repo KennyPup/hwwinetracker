@@ -18,8 +18,8 @@ const MENU = [
 ];
 
 // vessels: [{id, code, volume_l}] the batch is in now
-export function batch_menu(bid, code, vessels, bgroups = []) {
-  const next = `/batch/${bid}`;
+export function batch_menu(bid, code, vessels, bgroups = [], next0 = '') {   // next0 (v1.75): where the entry forms return to when not the batch page
+  const next = next0 || `/batch/${bid}`;
   const vsel = vessels.length
     ? `<label class="om-v">Tank / barrel <select id="omv">${vessels.map(v => `<option value="${v.id}">${E(v.code)} · ${Math.round(v.volume_l || 0)} L</option>`).join('')}${bgroups.map(g => `<option value="g${g.gid}" data-ms="${g.ids.join(',')}">Barrel group ${E(g.code)} · ${g.ids.length} barrels · ${Math.round(g.vol)} L</option>`).join('')}${vessels.length > 1 ? `<option value="all">All ${vessels.length} vessels</option>` : ''}</select></label>`
     : '<p class="muted" style="margin:0 0 8px">Not in any vessel now — only the entries that don’t need a vessel are shown.</p>';
@@ -51,7 +51,7 @@ var u=a.dataset.u.replace('{v}',one).replace('{vs}',vs).replace('{b}',b);if(u.in
 
 // hidden _next field in a Record form opened from a batch page / phone card
 // where an entry form may send you back to: a batch page (with its tab), a vessel page, a phone tank card, a /v/<name> page, Intakes
-export const NEXT_RX = /^(\/(batch|vessel|m\/v)\/\d+(\?tab=[a-z]+)?|\/v\/[^?#/]+|\/intakes)$/;
+export const NEXT_RX = /^(\/(batch|vessel|m\/v)\/\d+(\?tab=[a-z]+)?|\/v\/[^?#/]+|\/intakes|\/batches\?sel=\d+)$/;   // v1.75: + the Batches wine card
 export function with_next(html, path, next) {
   if (!next || !NEXT_RX.test(next)) return html;
   const re = new RegExp(`(<form[^>]*action="${path.replace(/\//g, '\\/')}"[^>]*>\\s*<input type="hidden" name="_t" value="[^"]*">)`);

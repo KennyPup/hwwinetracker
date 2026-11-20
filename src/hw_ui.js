@@ -14,6 +14,50 @@ const _ri = _NAV0.findIndex(n => n[0] === '/reports') + 1;
 export const NAV = [['/view/cellar', 'Cellar view', 'phone'], ..._NAV0.slice(0, _ri), ['/analytics', 'Analytics', 'chart'], ..._NAV0.slice(_ri)].filter(n => !['/lab', '/notes', '/ops', '/record'].includes(n[0])).concat([['/help', 'Help', 'help']]);
 // v1.33: Record left the rail (entries start from the wine's ＋ Record menu); its page stays as "My entries" for crumbs and the dashboard link
 export const SECTIONS = [...NAV.filter(n => n[0] !== '/view/cellar'), ['/record', 'My entries', 'record']];   // v1.31
+// v1.75: desktop has no left rail — four drop-down menus sit in the breadcrumb row instead (the rail stays as the phone drawer).
+// Every NAV entry must land in a menu or in the top bar (Cellar view, Help); anything not listed here goes into the last menu.
+const _GROUPS = [['Cellar', ['/batches', '/vessels', '/']], ['Winemaking', ['/formulas', '/prototypes', '/additions', '/constants']],
+  ['Inventory', ['/stock', '/materials', '/intakes', '/dispatches']], ['Business', ['/analytics', '/reports', '/costs', '/contacts']]];
+const _TOPBAR = ['/view/cellar', '/help'];
+export const MENUS = (() => {
+  const by = new Map(NAV.map(n => [n[0], n])), used = new Set(_TOPBAR);
+  const out = _GROUPS.map(([g, ps]) => [g, ps.filter(p => by.has(p)).map(p => { used.add(p); return by.get(p); })]);
+  out[out.length - 1][1].push(...NAV.filter(n => !used.has(n[0])));
+  return out;
+})();
+const _DESC = { '/batches': 'In-cellar wines, latest tended first', '/vessels': 'Tanks and barrels, QR labels', '/': 'Cellar totals, vessels in use, recent activity',
+  '/formulas': 'Masters and this season\u2019s formulas', '/prototypes': 'Each key wine across all years', '/additions': 'Cookbook doses by batch size', '/constants': 'Rates and defaults behind every dose',
+  '/stock': 'Bottled wine and packaging on hand, pace', '/materials': 'Additives, sugar and honey on hand', '/intakes': 'Fruit on hand, then deliveries', '/dispatches': 'Bills of lading by month and type',
+  '/analytics': 'Fermentations, film yeast, reductones, sales', '/reports': 'TTB 5120.17, dispatched stock, backups', '/costs': 'Cost ledger and cost per bottle', '/contacts': 'Growers, suppliers and carriers' };
+const _isOn = (p, path) => (p === '/' && path === '/') || (p !== '/' && path.startsWith(p));
+const _CHEV = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+function menus_html(path) {
+  return '<div class="menus">' + MENUS.map(([g, items], i) => `<div class="mn${items.some(([p]) => _isOn(p, path)) ? ' cur' : ''}"><button type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mn${i}">${E(g)}${_CHEV}</button>` +
+    `<div class="mnp" id="mn${i}">${items.map(([p, t]) => `<a class="${_isOn(p, path) ? 'on' : ''}" href="${p}"><b>${E(t)}</b>${_DESC[p] ? `<span>${E(_DESC[p])}</span>` : ''}</a>`).join('')}${i === MENUS.length - 1 ? '<a href="#" onclick="hwtSplash();return false"><b>About</b><span>Version and last backup</span></a>' : ''}</div></div>`).join('') + '</div>';
+}
+const _DESK = `<style>.tlogo,.tbtns,.menus{display:none}
+@media(min-width:641px){.rail{display:none!important}.top .ham{display:none}
+.top,.crumbs,main,.banner,body.min .top,body.min .crumbs,body.min main,body.min .banner{margin-left:0!important}
+.tlogo{display:flex;align-items:center;gap:10px;color:var(--fg2);font-weight:650;white-space:nowrap;flex:none}.tlogo:hover{text-decoration:none}
+.tlogo i{width:30px;height:30px;border-radius:7px;background:var(--amber);color:#0d1117;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:700}
+.tbtns{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}.top .who{margin-left:0;cursor:pointer}
+.tbtns .vsw{display:flex;align-items:center;gap:6px;color:#d29922;border:1px solid rgba(210,153,34,.5);border-radius:6px;padding:5px 10px;font-size:13px;white-space:nowrap}.tbtns .vsw:hover{text-decoration:none;background:var(--amber-t)}
+.tbtns .hlp{display:flex;color:var(--mut);padding:4px}.tbtns .hlp:hover{color:var(--fg2)}
+.crumbs{display:flex;align-items:center;gap:4px;padding:0 20px;min-height:40px;position:relative;z-index:15}.crumbs .crt{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menus{display:flex;align-items:center;gap:2px;flex:none}.mn{position:relative}.mn:last-child .mnp{left:auto;right:auto}@media(max-width:760px){.mn:last-child .mnp{left:auto;right:-60px}}
+.mn>button{display:flex;align-items:center;gap:5px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--fg);padding:10px 12px 8px;font-weight:600;cursor:pointer}
+.mn>button:hover{filter:none;color:var(--fg2);background:var(--hi)}.mn.cur>button{border-bottom-color:var(--amber);color:var(--fg2)}.mn.open>button{background:var(--hi);color:var(--fg2)}
+.mnp{display:none;position:absolute;left:0;top:100%;width:320px;padding:6px;background:var(--card);border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6)}.mn.open .mnp{display:block}
+.mnp a{display:block;padding:8px 14px;border-radius:5px;color:var(--fg2)}.mnp a:hover{text-decoration:none;background:var(--hi)}.mnp a.on{background:var(--blue-t)}
+.mnp a b{display:block;font-weight:600}.mnp a span{display:block;font-size:12px;color:var(--mut)}}
+@media(min-width:641px) and (max-width:1180px){.tlogo span{display:none}.top .who{display:none}}
+@media(min-width:641px) and (max-width:760px){.tbtns .vsw span{display:none}}</style>`;
+const _MENUJS = `<script>(function(){var ms=[].slice.call(document.querySelectorAll('.mn'));if(!ms.length)return;
+function shut(x){ms.forEach(function(m){if(m!==x){m.classList.remove('open');m.firstElementChild.setAttribute('aria-expanded','false')}})}
+ms.forEach(function(m){m.firstElementChild.addEventListener('click',function(e){e.stopPropagation();shut(m);var o=m.classList.toggle('open');this.setAttribute('aria-expanded',o?'true':'false')})});
+document.addEventListener('click',function(e){if(!e.target.closest||!e.target.closest('.mnp'))shut(null)});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var o=document.querySelector('.mn.open');shut(null);if(o)o.firstElementChild.focus()}});
+document.querySelector('.menus').addEventListener('focusout',function(e){if(!e.relatedTarget||!e.relatedTarget.closest||!e.relatedTarget.closest('.menus'))setTimeout(function(){if(!document.activeElement.closest||!document.activeElement.closest('.menus'))shut(null)},0)})})()</script>`;
 export const CSS = S.CSS;
 export const ICONS = { ...S.ICONS, chart: '<path d="M3 20h18"/><path d="M4 16l5-6 4 3 6-8"/><circle cx="9" cy="10" r="1.2"/><circle cx="13" cy="13" r="1.2"/>', cost: '<path d="M12 3v18M16 7.5C16 5.6 14.2 4.5 12 4.5S8 5.6 8 7.5s1.8 3 4 3.5 4 1.6 4 3.5-1.8 3-4 3-4-1.1-4-3"/>',
   phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/>',
@@ -58,10 +102,10 @@ ${path === '/' && !globalThis.__hwt_view ? "<script>try{if(innerWidth<=640&&loca
 <script>try{if(localStorage.getItem('hwc_min')==='1')document.body.classList.add('min')}catch(e){}</script>
 <style>.rail a.vsw{color:#d29922;border-bottom:1px solid var(--line);margin-bottom:4px}</style><nav class="rail"><div class="logo" onclick="hwtSplash()" title="About" style="cursor:pointer"><i>HW</i><span>HWWineTracker</span></div>${nav}</nav>
 <div id="scrim" onclick="document.body.classList.remove('navopen')"></div>
-<div class="top"><button class="ham" title="Menu" onclick="if(window.innerWidth<=640){document.body.classList.toggle('navopen');return}document.body.classList.toggle('min');try{localStorage.setItem('hwc_min',document.body.classList.contains('min')?'1':'0')}catch(e){}">
+${_DESK}<div class="top"><a class="tlogo" href="/batches" title="Batches (home)"><i>HW</i><span>HWWineTracker</span></a><button class="ham" title="Menu" onclick="if(window.innerWidth<=640){document.body.classList.toggle('navopen');return}document.body.classList.toggle('min');try{localStorage.setItem('hwc_min',document.body.classList.contains('min')?'1':'0')}catch(e){}">
 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-${search_widget}${CONVERTER}<div class="who"><b>Hermit Woods</b>${E(strftime(naiveMs(today()), '%a %d %b %Y'))}</div></div>
-${banner}<div class="crumbs">${cr}</div><main>${body}</main>
+${search_widget}${CONVERTER}<div class="tbtns"><a class="vsw" href="/view/cellar" onclick="this.href='/view/cellar?from='+encodeURIComponent(location.pathname+location.search)" title="Switch to the cellar (phone) view — this device will open in it until you switch back">${icon('phone')}<span>Cellar view</span></a><a class="hlp" href="/help" title="Help" aria-label="Help">${icon('help')}</a></div><div class="who" onclick="hwtSplash()" title="About HWWineTracker"><b>Hermit Woods</b>${E(strftime(naiveMs(today()), '%a %d %b %Y'))}</div></div>
+${banner}<div class="crumbs">${menus_html(path)}<div class="crt">${cr}</div></div>${_MENUJS}<main>${body}</main>
 </body></html>`;
 }
 

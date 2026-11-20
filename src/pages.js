@@ -18,6 +18,7 @@ import * as VU from './vessel_ui.js';
 import * as S2 from './so2.js';
 import { current_contents as entry_contents } from './entry.js';
 import { ctx } from './core.js';
+import * as BC from './batchcard.js';
 
 // ---------------------------------------------------------------- small Python-compat helpers
 const S = pyStr;   // f'{x}' for ints / strings / None
@@ -137,11 +138,21 @@ export function p_batches(c, q) {
       <label>Wine type<select name="type" onchange="this.form.submit()"><option value="">all</option>${types.map(t => `<option ${t === typ ? 'selected' : ''}>${E(t)}</option>`).join('')}</select></label><button>Filter</button></form>`;
   const tl = sum(rows.map(r => r.cur_l || 0));
   const SM = stage.current_map(c);
-  const t = table(['', 'Batch', 'Stage', 'Year', 'Variety', 'Type', 'Gal', 'Litres', 'Vessels', 'Last operation'],
-    rows.map(r => [hw_ui.badge(bev.get(r.id)), `<a href="/batch/${S(r.id)}"><b>${E(r.code)}</b></a><small>${E(r.description)}</small>`, SM.has(r.id) ? stage.pill(SM.get(r.id).stage) : '', E(r.production_year), E(r.variety),
-      E(bev.get(r.id) || ''), r.cur_l ? num((r.cur_l || 0) / GAL) : '', num(r.cur_l), r.nves || '',
-      r.last_op ? `${E(hw_ui.ago(r.last_op))}<small>${E((r.last_op || '').slice(0, 10))}</small>` : '']), [6, 7, 8]);
-  return page('Batches', `<h1>Batches <a class="btn" href="/formulas?start=1" style="font-size:14px;vertical-align:middle;margin-left:10px">＋ New batch (from a formulation)</a></h1><p class="sub">${rows.length} batches · ${num(tl / GAL)} gal (${num(tl)} L) in cellar as of ${E(sd)}</p>${f}${stage.CSS}${t}`, '/batches');
+  // v1.75: the list with the selected wine's card beside it (desktop ≥ 1100 px; narrower screens keep the plain list and links)
+  const cal = rows.some(r => (r.cur_l || 0) > 0) ? S2.calibrate(c) : null;
+  const selq = parseInt(qv(q, 'sel', ''), 10);
+  // the wine asked for wins even when the filters hide its row (coming back from an entry form: /batches?sel=N lands on this year)
+  const sel = (Number.isFinite(selq) && (rows.some(r => r.id === selq) ? selq : c.val('SELECT id FROM batch WHERE id=?', selq))) || (rows.find(r => (r.cur_l || 0) > 0) || rows[0] || {}).id || null;
+  const heads = [['', ''], ['Batch', ''], ['Stage', ''], ['Year', 'bl-yr'], ['Variety', ''], ['Type', 'bl-ty'], ['Gal', 'n'], ['Litres', 'n'], ['Vessels', 'n'], ['Free SO₂ est.', 'n'], ['Last operation', '']];
+  const body = rows.map(r => { const sg = SM.has(r.id) ? SM.get(r.id).stage : '';
+    return `<tr data-b="${S(r.id)}" class="${r.id === sel ? 'sel' : ''}"><td>${hw_ui.badge(bev.get(r.id))}</td><td><a class="bl-code" href="/batch/${S(r.id)}"><b>${E(r.code)}</b></a><small>${E(r.description)}</small></td><td>${sg ? stage.pill(sg) : ''}</td>` +
+      `<td class="bl-yr">${E(r.production_year)}</td><td>${E(r.variety)}</td><td class="bl-ty">${E(bev.get(r.id) || '')}</td><td class="n">${r.cur_l ? num((r.cur_l || 0) / GAL) : ''}</td><td class="n">${num(r.cur_l)}</td><td class="n">${r.nves || ''}</td>` +
+      ((r.cur_l || 0) > 0 ? BC.so2_cell(c, r.id, cal, sg === 'fermenting') : '<td class="n bl-so2" data-v=""></td>') +
+      `<td>${r.last_op ? `${E(hw_ui.ago(r.last_op))}<small>${E((r.last_op || '').slice(0, 10))}</small>` : ''}</td></tr>`; }).join('');
+  const t = `<table id="bl"><thead><tr>${heads.map(([h, k]) => `<th class="${k}"${h.startsWith('Free') ? ' data-first="asc" title="Estimated free SO₂ today (mg/L) in the vessel that needs KMS first, against its 0.5-molecular target (white mark). First click lists the wine that needs KMS first."' : ''}>${E(h)}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td colspan=99 class=muted>No records</td></tr>'}</tbody></table>`;
+  const saved = q.saved ? `<div class="ok">Saved${q.op ? ` — <a href="/op/${E(q.op[0])}">view the operation</a>` : ''}.</div>` : '';
+  return page('Batches', `${BC.CSS}${stage.CSS}<div class="bl"><div class="bl-main"><h1>Batches <a class="btn" href="/formulas?start=1" style="font-size:14px;vertical-align:middle;margin-left:10px">＋ New batch (from a formulation)</a></h1><p class="sub">${rows.length} batches · ${num(tl / GAL)} gal (${num(tl)} L) in cellar as of ${E(sd)}</p>${saved}${f}${t}</div>` +
+    `<aside id="bcard" aria-label="Selected wine">${sel ? BC.card(c, sel, cal) : '<p class="muted">No wine selected.</p>'}</aside></div>${BC.JS}`, '/batches');
 }
 
 const LABEL = { 'TempC': 'Temp °C', 'Titratable Acidity': 'TA' };
